@@ -18,6 +18,8 @@ import concurrent.futures
 
 N_SAMPLES = 100
 
+max_workers = 10
+
 def multi_prediction(X, url):
 
     # Single thread
@@ -32,7 +34,7 @@ def multi_prediction(X, url):
     y_preds = []
     y_requests = []
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         for x in X:
             # Load the input image and construct the payload for the request
             image = Image.fromarray(np.uint8(x * 255.0))
