@@ -1,0 +1,7 @@
+numpy
+pillow
+requests
+matplotlib
+tensorflow
+tensorboard
+fiftyone
