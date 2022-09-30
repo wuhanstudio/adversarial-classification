@@ -232,7 +232,7 @@ if __name__ == '__main__':
                                         0.05, False, 'margin_loss')
 
     for i, x in enumerate(x_adv):
-        im = Image.fromarray(np.array(np.uint8(x*255.0)))
+        im = Image.fromarray(np.array(np.uint8(x_test[i]*255.0)))
         im_adv = Image.fromarray(np.array(np.uint8(x*255.0)))
         im.save(f"images/x_{i}.jpg")
         im_adv.save(f"images/x_{i}_adv.jpg")
