@@ -33,7 +33,7 @@ class VGG16ImageNet:
 
             self.imagenet_labels = [imagenet_json[str(k)][1] for k in range(len(imagenet_json))]
 
-    def predictX(self, X, max_workers=4):
+    def predictX(self, X, max_workers=8):
         """
         - X: numpy array of shape (N, H, W, C)
         """
@@ -59,20 +59,24 @@ class VGG16ImageNet:
             return y_pred_temp
 
         y_preds = []
-        y_requests = []
+        y_index = []
+        y_executors = {}
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for x in X:
+            for i, x in enumerate(X):
                 # Load the input image and construct the payload for the request
                 image = Image.fromarray(np.uint8(x * 255.0))
                 buff = BytesIO()
                 image.save(buff, format="JPEG")
 
                 data = {'file': base64.b64encode(buff.getvalue()).decode("utf-8")}
-                y_requests.append(executor.submit(send_request, url=self.url, data=data))
+                y_executors[executor.submit(send_request, url=self.url, data=data)] = i
 
-            for y_request in concurrent.futures.as_completed(y_requests):
-                y_preds.append(y_request.result())
+            for y_executor in concurrent.futures.as_completed(y_executors):
+                y_index.append(y_executors[y_executor])
+                y_preds.append(y_executor.result())
+
+            y_preds = [y for _, y in sorted(zip(y_index, y_preds))]
 
         return np.array(y_preds)
 
