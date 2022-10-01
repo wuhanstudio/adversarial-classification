@@ -14,7 +14,7 @@ import base64
 
 import concurrent.futures
 
-class VGG16ImageNet:
+class DeepAPI_VGG16ImageNet:
     def __init__(self, url):
         """
         - url: DeepAPI server URL
