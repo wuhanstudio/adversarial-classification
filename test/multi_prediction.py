@@ -18,7 +18,7 @@ import concurrent.futures
 
 N_SAMPLES = 100
 
-max_workers = 10
+max_workers = 8
 
 def multi_prediction(X, url):
 
@@ -32,20 +32,24 @@ def multi_prediction(X, url):
         return y_pred_temp
 
     y_preds = []
-    y_requests = []
-
+    y_index = []
+    y_executors = {}
+    
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for x in X:
+        for i, x in enumerate(X):
             # Load the input image and construct the payload for the request
             image = Image.fromarray(np.uint8(x * 255.0))
             buff = BytesIO()
             image.save(buff, format="JPEG")
 
             data = {'file': base64.b64encode(buff.getvalue()).decode("utf-8")}
-            y_requests.append(executor.submit(send_request, url=url, data=data))
+            y_executors[executor.submit(send_request, url=url, data=data)] = i
 
-        for y_request in concurrent.futures.as_completed(y_requests):
-            y_preds.append(y_request.result())
+        for y_executor in concurrent.futures.as_completed(y_executors):
+            y_index.append(y_executors[y_executor])
+            y_preds.append(y_executor.result())
+
+        y_preds = [y for _, y in sorted(zip(y_index, y_preds))]
 
     return y_preds
 
