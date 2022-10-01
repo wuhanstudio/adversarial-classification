@@ -99,8 +99,8 @@ class VGG16ImageNet:
 
         y_preds = []
         try:
-            y_pred_temp = np.zeros([len(self.imagenet_labels)])
             for x in X:
+                y_pred_temp = np.zeros(len(self.imagenet_labels))
                 # Load the input image and construct the payload for the request
                 image = Image.fromarray(np.uint8(x * 255.0))
                 buff = BytesIO()
