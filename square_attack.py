@@ -1,4 +1,6 @@
 import numpy as np
+from tqdm import tqdm
+import concurrent.futures
 
 class SquareAttack():
 
@@ -85,14 +87,19 @@ class SquareAttack():
         idx_to_fool = margin_min > 0
         idx_to_fool = [i for i, x in enumerate(idx_to_fool) if x]
 
-        x_curr = [x[idx] for idx in idx_to_fool]
-        x_adv_curr = [x_adv[idx] for idx in idx_to_fool]
-        y_curr = [y[idx] for idx in idx_to_fool]
+        x_curr = []
+        x_adv_curr = []
+        y_curr = []
+        for idx in idx_to_fool:
+            x_curr.append(x[idx])
+            x_adv_curr.append(x_adv[idx])
+            y_curr.append(y[idx])
 
         loss_min_curr, margin_min_curr = loss_min[idx_to_fool], margin_min[idx_to_fool]
-        deltas = [ (xb - xc) for xb, xc in zip(x_adv_curr, x_curr) ]
+        deltas = [ (xa - xc) for xa, xc in zip(x_adv_curr, x_curr) ]
 
         p = self.p_selection(p_init, i_iter, n_iters)
+
         for i_img in range(len(x_adv_curr)):
             h, w, c = x[i_img].shape[:]
             n_features = c*h*w
@@ -128,9 +135,64 @@ class SquareAttack():
 
         return x_adv, margin_min, loss_min, n_queries
 
+    def batch(self, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, batch, max_workers=40):
 
-    def attack(self, x, y, targeted, eps = 8 / 255.0, n_iters = 1000, p_init = 0.05, loss_type = 'margin_loss', log_dir = None, distributed=True): 
+        idx_to_fool = margin_min > 0
+        idx_to_fool = [i for i, v in enumerate(idx_to_fool) if v]
+
+        x_curr = [x[idx] for idx in idx_to_fool]
+        x_adv_curr = [x_adv[idx] for idx in idx_to_fool]
+        y_curr = [y[idx] for idx in idx_to_fool]
+
+        loss_min_curr, margin_min_curr = loss_min[idx_to_fool], margin_min[idx_to_fool]
+
+        deltas = [ (xa - xc) for xa, xc in zip(x_adv_curr, x_curr) ]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_url = {executor.submit(self.step, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, len(x) <= (max_workers / batch)): j for j in range(0, batch)}
+            for future in concurrent.futures.as_completed(future_to_url):
+                j = future_to_url[future]
+                try:
+                    x_adv, _, loss_min_temp, _ = future.result()
+                    idx_improved = loss_min_temp[idx_to_fool] < loss_min_curr
+                    idx_improved = [i for i, v in enumerate(idx_improved) if v]
+
+                    for idx in idx_improved:
+                        deltas[idx] = deltas[idx] + x_adv[idx_to_fool[idx]] - x_adv_curr[idx]
+
+                except Exception as e:
+                    print('Task %r generated an exception: %s' % (j, e))
+                else:
+                    pass
+
+        x_new = [  np.clip(xc + d, self.min_val, self.max_val) for xc, d in zip(x_curr, deltas) ]
+
+        logits = self.classifier.predictX(x_new)
+
+        loss = self.model_loss(y_curr, logits, targeted, loss_type=loss_type)
+        margin = self.model_loss(y_curr, logits, targeted, loss_type='margin_loss')
+
+        idx_improved = loss < loss_min_curr
+        loss_min[idx_to_fool] = idx_improved * loss + ~idx_improved * loss_min_curr
+        margin_min[idx_to_fool] = idx_improved * margin + ~idx_improved * margin_min_curr
+
+        idx_improved = np.reshape(idx_improved, [-1, *[1]*3])
+
+        for i in range(len(idx_improved)):
+            x_adv[idx_to_fool[i]] = idx_improved[i] * x_new[i] + ~idx_improved[i] * x_adv_curr[i]
+
+        n_queries[idx_to_fool] +=  1
+
+        return x_adv, margin_min, loss_min, n_queries
+
+    def attack(self, x, y, targeted, eps = 8 / 255.0, n_iters = 1000, p_init = 0.05, loss_type = 'margin_loss', log_dir = None, distributed=True, batch=40): 
         """ The Linf square attack """
+
+        if not distributed:
+            batch = 1
+
+        assert(len(x) > 0)
+        assert(len(x) == len(y))
 
         y_label = np.argmax(y, axis=1)
 
@@ -157,17 +219,29 @@ class SquareAttack():
 
         x_adv, margin_min, loss_min, n_queries = self.init(x, y, eps, targeted, loss_type, distributed)
 
-        # Main loop
-        for i_iter in range(n_iters - 1):
+        if distributed:
+            pbar = tqdm(range(0, n_iters - 1, batch), desc="Distributed Square Attack")
+        else:
+            pbar = tqdm(range(0, n_iters - 1), desc="Square Attack")
 
-            x_adv, margin_min, loss_min, n_queries = self.step(x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type)
+        # Main loop
+
+        for i_iter in pbar:
+
+            if distributed:
+                x_adv, margin_min, loss_min, n_queries = self.batch(x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, batch=batch)
+            else:
+                x_adv, margin_min, loss_min, n_queries = self.step(x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, distributed)
 
             acc, acc_corr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, i_iter, len(x))
 
-            print('{}: acc={:.2%} acc_corr={:.2%} avg#q_ae={:.2f} med#q={:.1f}, avg_margin={:.2f} (n_ex={}, eps={:.3f})'.
-                format(i_iter+1, acc, acc_corr, mean_nq_ae, median_nq_ae, avg_margin_min, len(x), eps))
+            pbar.set_postfix({'it': i_iter+batch, 'accuracy': acc, 'mean queries': mean_nq_ae, 'avg margin': avg_margin_min})
+    
+            # print('{}: acc={:.2%} acc_corr={:.2%} avg#q_ae={:.2f} med#q={:.1f}, avg_margin={:.2f} (n_ex={}, eps={:.3f})'.
+                # format(i_iter+1, acc, acc_corr, mean_nq_ae, median_nq_ae, avg_margin_min, len(x), eps))
 
             if acc == 0:
+                print('\nSuceessfully found adversarial examples for all examples')
                 break
 
         return x_adv, n_queries

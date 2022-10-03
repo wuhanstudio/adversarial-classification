@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from deepapi import DeepAPI_VGG16ImageNet
 import fiftyone.zoo as foz
 
@@ -11,15 +13,15 @@ def dense_to_onehot(y, n_classes):
     y_onehot[np.arange(len(y)), y] = True
     return y_onehot
 
-N_SAMPLES = 10
-
-imagenet_dataset = foz.load_zoo_dataset("imagenet-sample")
-imagenet_labels = foz.load_zoo_dataset_info("imagenet-sample").classes
+N_SAMPLES = 1
 
 if __name__ == '__main__':
 
     x_test = []
     y_test = []
+
+    imagenet_dataset = foz.load_zoo_dataset("imagenet-sample")
+    imagenet_labels = foz.load_zoo_dataset_info("imagenet-sample").classes
 
     for sample in imagenet_dataset:
         x = Image.open(str(sample['filepath']))
@@ -37,8 +39,10 @@ if __name__ == '__main__':
 
     # Note: we count the queries only across correctly classified images
     square_attack = SquareAttack(model)
-    x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False)
-    # log_dir = 'logs/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_dir = 'logs/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    # x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, n_iters=3000, distributed=False, log_dir=log_dir)
+    x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, n_iters=3000, distributed=True, batch=40, log_dir=log_dir)
 
     for i, xa in enumerate(x_adv):
         im = Image.fromarray(np.array(np.uint8(x_test[i]*255.0)))
