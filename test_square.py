@@ -13,7 +13,7 @@ def dense_to_onehot(y, n_classes):
     y_onehot[np.arange(len(y)), y] = True
     return y_onehot
 
-N_SAMPLES = 1
+N_SAMPLES = 100
 
 if __name__ == '__main__':
 
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     x_test = x_test[:N_SAMPLES]
     y_test = y_test[:N_SAMPLES]
 
-    model = DeepAPI_VGG16ImageNet('http://localhost:8080/vgg16')
+    model = DeepAPI_VGG16ImageNet('http://localhost:8080')
 
     y_target_onehot = dense_to_onehot(y_test, n_classes=len(imagenet_labels))
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     log_dir = 'logs/' + datetime.now().strftime("%Y%m%d-%H%M%S")
 
     # x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, n_iters=3000, distributed=False, log_dir=log_dir)
-    x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, n_iters=3000, distributed=True, batch=40, log_dir=log_dir)
+    x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, n_iters=3000, distributed=True, batch=16, log_dir=log_dir)
 
     for i, xa in enumerate(x_adv):
         im = Image.fromarray(np.array(np.uint8(x_test[i]*255.0)))

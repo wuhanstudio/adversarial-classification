@@ -3,7 +3,9 @@ This module implements the DeepAPI client for pretrained VGG16 model on CIFAR-10
 """
 
 import requests
+from urllib.parse import urlparse
 import urllib.request, json 
+from urllib.parse import urljoin
 
 import numpy as np
 np.set_printoptions(suppress=True)
@@ -14,24 +16,9 @@ import base64
 
 import concurrent.futures
 
-class DeepAPI_VGG16ImageNet:
-    def __init__(self, url):
-        """
-        - url: DeepAPI server URL
-        """
-        self.url = url
-
-        # # Load the Keras application labels 
-        with urllib.request.urlopen("https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json") as l_url:
-            imagenet_json = json.load(l_url)
-
-            # imagenet_json['134'] = ["n02012849", "crane"],
-            imagenet_json['517'] = ['n02012849', 'crane_bird']
-
-            # imagenet_json['638'] = ['n03710637', 'maillot']
-            imagenet_json['639'] = ['n03710721', 'maillot_tank_suit']
-
-            self.imagenet_labels = [imagenet_json[str(k)][1] for k in range(len(imagenet_json))]
+class DeepAPIBase:
+    def __init__(self):
+        pass
 
     def predictX(self, X, max_workers=8):
         """
@@ -51,10 +38,10 @@ class DeepAPI_VGG16ImageNet:
 
         # Single thread
         def send_request(url, data):
-            y_pred_temp = np.zeros(len(self.imagenet_labels))
+            y_pred_temp = np.zeros(len(self.labels))
             res = requests.post(url, json=data).json()['predictions']
             for r in res:
-                y_pred_temp[self.imagenet_labels.index(r['label'])] = r['probability']
+                y_pred_temp[self.labels.index(r['label'])] = r['probability']
 
             return y_pred_temp
 
@@ -100,7 +87,7 @@ class DeepAPI_VGG16ImageNet:
         y_preds = []
         try:
             for x in X:
-                y_pred_temp = np.zeros(len(self.imagenet_labels))
+                y_pred_temp = np.zeros(len(self.labels))
                 # Load the input image and construct the payload for the request
                 image = Image.fromarray(np.uint8(x * 255.0))
                 buff = BytesIO()
@@ -110,7 +97,7 @@ class DeepAPI_VGG16ImageNet:
                 res = requests.post(self.url, json=data).json()['predictions']
 
                 for r in res:
-                    y_pred_temp[self.imagenet_labels.index(r['label'])] = r['probability']
+                    y_pred_temp[self.labels.index(r['label'])] = r['probability']
 
                 y_preds.append(y_pred_temp)
 
@@ -125,10 +112,49 @@ class DeepAPI_VGG16ImageNet:
         """
         print()
         for i in range(0, len(y)):
-            print('{:<25s}{:.5f}'.format(self.imagenet_labels[i], y[i]))
+            print('{:<25s}{:.5f}'.format(self.labels[i], y[i]))
 
     def get_class_name(self, i):
         """
         Get the class name from the prediction label 0-10.
         """
-        return self.imagenet_labels[i]
+        return self.labels[i]
+
+
+class DeepAPI_VGG16Cifar10(DeepAPIBase):
+
+    def __init__(self, url):
+        """
+        - url: DeepAPI server URL
+        """
+        super().__init__()
+
+        url_parse = urlparse(url)
+        self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'vgg16_cifar10')
+
+        # cifar10 labels
+        cifar10_labels = ['frog', 'deer', 'cat', 'bird', 'dog', 'truck', 'ship', 'airplane', 'horse', 'automobile']
+        self.labels = cifar10_labels
+
+
+class DeepAPI_VGG16ImageNet(DeepAPIBase):
+    def __init__(self, url):
+        """
+        - url: DeepAPI server URL
+        """
+        url_parse = urlparse(url)
+        self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'vgg16')
+
+        # # Load the Keras application labels 
+        with urllib.request.urlopen("https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json") as l_url:
+            imagenet_json = json.load(l_url)
+
+            # imagenet_json['134'] = ["n02012849", "crane"],
+            imagenet_json['517'] = ['n02012849', 'crane_bird']
+
+            # imagenet_json['638'] = ['n03710637', 'maillot']
+            imagenet_json['639'] = ['n03710721', 'maillot_tank_suit']
+
+            imagenet_labels = [imagenet_json[str(k)][1] for k in range(len(imagenet_json))]
+
+            self.labels = imagenet_labels

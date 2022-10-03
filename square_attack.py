@@ -149,7 +149,7 @@ class SquareAttack():
         deltas = [ (xa - xc) for xa, xc in zip(x_adv_curr, x_curr) ]
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_url = {executor.submit(self.step, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, len(x) <= (max_workers / batch)): j for j in range(0, batch)}
+            future_to_url = {executor.submit(self.step, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, len(x) <= batch): j for j in range(0, batch)}
             for future in concurrent.futures.as_completed(future_to_url):
                 j = future_to_url[future]
                 try:
@@ -185,7 +185,7 @@ class SquareAttack():
 
         return x_adv, margin_min, loss_min, n_queries
 
-    def attack(self, x, y, targeted, eps = 8 / 255.0, n_iters = 1000, p_init = 0.05, loss_type = 'margin_loss', log_dir = None, distributed=True, batch=40): 
+    def attack(self, x, y, targeted, eps = 8 / 255.0, n_iters = 1000, p_init = 0.05, loss_type = 'margin_loss', log_dir = None, distributed=True, batch=16): 
         """ The Linf square attack """
 
         if not distributed:
