@@ -121,7 +121,7 @@ class DeepAPIBase:
         return self.labels[i]
 
 
-class DeepAPI_VGG16Cifar10(DeepAPIBase):
+class DeepAPI_VGG16_Cifar10(DeepAPIBase):
 
     def __init__(self, url):
         """
@@ -137,7 +137,7 @@ class DeepAPI_VGG16Cifar10(DeepAPIBase):
         self.labels = cifar10_labels
 
 
-class DeepAPI_VGG16ImageNet(DeepAPIBase):
+class DeepAPI_VGG16_ImageNet(DeepAPIBase):
     def __init__(self, url):
         """
         - url: DeepAPI server URL

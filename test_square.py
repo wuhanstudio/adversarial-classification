@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from deepapi import DeepAPI_VGG16ImageNet
+from deepapi import DeepAPI_VGG16_ImageNet
 import fiftyone.zoo as foz
 
 import numpy as np
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     x_test = x_test[:N_SAMPLES]
     y_test = y_test[:N_SAMPLES]
 
-    model = DeepAPI_VGG16ImageNet('http://localhost:8080')
+    model = DeepAPI_VGG16_ImageNet('http://localhost:8080')
 
     y_target_onehot = dense_to_onehot(y_test, n_classes=len(imagenet_labels))
 

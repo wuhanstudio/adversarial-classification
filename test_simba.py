@@ -2,14 +2,14 @@ import numpy as np
 from PIL import Image
 
 from simba import SimBA
-from deepapi import DeepAPI_VGG16Cifar10
+from deepapi import DeepAPI_VGG16_Cifar10
 
 # Load Image [0.0, 1.0]
 x = np.asarray(Image.open('test/dog.jpg').resize((32, 32))) / 255.0
 
 # Initialize the Cloud API Model
 DEEP_API_URL = 'http://localhost:8080'
-model = DeepAPI_VGG16Cifar10(DEEP_API_URL)
+model = DeepAPI_VGG16_Cifar10(DEEP_API_URL)
 
 # SimBA Attack
 simba = SimBA(model)
