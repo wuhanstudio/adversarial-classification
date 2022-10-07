@@ -7,6 +7,8 @@ import numpy as np
 import concurrent.futures
 from tqdm import tqdm
 
+from base_attack import BaseAttack
+
 ENV_MODEL = os.environ.get('ENV_MODEL')
 
 if ENV_MODEL is None:
@@ -34,7 +36,7 @@ def proj_lp(v, xi=0.1, p=2):
 
     return v
 
-class SimBA():
+class SimBA(BaseAttack):
     """
     Implementation of the `SimBA` attack. Paper link: https://arxiv.org/abs/1905.07121
     """
@@ -44,8 +46,8 @@ class SimBA():
         Create a class: `SimBA` instance.
         - classifier: model to attack
         """
-        self.classifier = classifier
-    
+        super().__init__(classifier)
+
     def init(self, x):
         """
         Initialize the attack.
@@ -89,12 +91,11 @@ class SimBA():
                 x_adv[i] = x_adv_minus[i]
                 y_pred[i] = minus[i]
             else:
-                raise ValueError('Something went wrong...')
                 pass
 
         return x_adv, y_pred
 
-    def batch(self, x_adv, y_pred, perm, index, epsilon, max_workers=10, batch=50):
+    def batch(self, x_adv, y_pred, perm, index, epsilon, concurrency):
         """
         Single step for distributed attack.
         """
@@ -102,8 +103,8 @@ class SimBA():
         for i in range(0, len(x_adv)):
             noises.append(np.zeros(x_adv[i].shape))
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_url = {executor.submit(self.step, x_adv, y_pred, perm, index+j, epsilon): j for j in range(0, batch)}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_url = {executor.submit(self.step, x_adv, y_pred, perm, index+j, epsilon): j for j in range(0, concurrency)}
             for future in concurrent.futures.as_completed(future_to_url):
                 j = future_to_url[future]
                 try:
@@ -126,7 +127,7 @@ class SimBA():
 
         return x_adv, y_adv
 
-    def attack(self, x, y, epsilon=0.05*SCALE, max_it=1000, distributed=False, batch=50, max_workers=10):
+    def attack(self, x, y, epsilon=0.05*SCALE, max_it=1000, concurrency=1):
         """
         Initiate the attack.
 
@@ -138,19 +139,35 @@ class SimBA():
         - max_workers: number of workers
         """
 
+        n_targets = 0
+        if type(x) == list:
+            n_targets = len(x)
+        elif type(x) == np.ndarray:
+            n_targets = x.shape[0]
+        else:
+            raise ValueError('Input type not supported...')
+
+        assert n_targets > 0
+
+        # Initialize attack
         x_adv, y_pred, perm = self.init(x)
 
-        # Continue query count
+        # Compute number of images correctly classified
         y_pred_classes = np.argmax(y_pred, axis=1)
         correct_classified_mask = (y_pred_classes == y)
+        correct_classified = [i for i, v in enumerate(correct_classified_mask) if v]
+
+        # Images to attack
         not_dones_mask = correct_classified_mask.copy()
 
         print('Clean accuracy: {:.2%}'.format(np.mean(correct_classified_mask)))
 
-        if distributed:
-            pbar = tqdm(range(0, max_it, batch), desc="Distributed SimBA Attack")
+        if n_targets > 1:
+            # Horizontally Distributed Attack
+            pbar = tqdm(range(0, max_it), desc="Distributed SimBA Attack (Horizontal)")
         else:
-            pbar = tqdm(range(0, max_it), desc="SimBA Attack")
+            # Vertically Distributed Attack
+            pbar = tqdm(range(0, max_it, concurrency), desc="Distributed SimBA Attack (Vertical)")
 
         total_queries = np.zeros(len(x))
 
@@ -158,33 +175,35 @@ class SimBA():
 
             not_dones = [i for i, v in enumerate(not_dones_mask) if v]
 
-            # x_curr = [x[idx] for idx in not_dones]
             x_adv_curr = [x_adv[idx] for idx in not_dones]
             y_curr = [y_pred[idx] for idx in not_dones]
             perm_curr = [perm[idx] for idx in not_dones]
 
             if ENV_MODEL == 'keras':
-                # x_curr = np.array(x_curr)
                 x_adv_curr = np.array(x_adv_curr)
-                y_curr = np.array(y_curr)
                 perm_curr = np.array(perm_curr)
 
-            if distributed:
-                x_adv_curr, y_curr = self.batch(x_adv_curr, y_curr, perm_curr, p, epsilon*SCALE, max_workers, batch)
-            else:
+            y_curr = np.array(y_curr)
+
+            if n_targets > 1 and concurrency > 1:
+                # Horizontally Distributed Attack
                 x_adv_curr, y_curr = self.step(x_adv_curr, y_curr, perm_curr, p, epsilon*SCALE)
+            else:
+                # Vertically Distributed Attack
+                x_adv_curr, y_curr = self.batch(x_adv_curr, y_curr, perm_curr, p, epsilon*SCALE, concurrency)
 
             for i in range(len(not_dones)):
                 x_adv[not_dones[i]] = x_adv_curr[i]
                 y_pred[not_dones[i]] = y_curr[i]
 
             # Logging stuff
-            total_queries += 2 * not_dones_mask
+            if n_targets > 1:
+                total_queries += 2 * not_dones_mask
+            else:
+                total_queries += 2 * concurrency * not_dones_mask + 1
 
             y_pred_classes = np.argmax(y_pred, axis=1)
             not_dones_mask = not_dones_mask * (y_pred_classes == y)
-
-            # max_curr_queries = total_queries.max()
 
             success_mask = correct_classified_mask * (1 - not_dones_mask)
             num_success = success_mask.sum()
@@ -195,8 +214,7 @@ class SimBA():
             else:
                 success_queries = ((success_mask * total_queries).sum() / num_success)
 
-            # pbar.set_postfix({'origin prob': y_list[-1], 'l2 norm': np.sqrt(np.power(x_adv - x, 2).sum())})
-            pbar.set_postfix({'Total Queries': total_queries.sum(), 'Mean Higest Prediction': y_curr.max(axis=1).mean(), 'Success Rate': current_success_rate, 'Avg Queries': success_queries})
+            pbar.set_postfix({'Total Queries': total_queries.sum(), 'Mean Higest Prediction': y_pred[correct_classified].max(axis=1).mean(), 'Success Rate': current_success_rate, 'Avg Queries': success_queries})
 
             # Early break
             if current_success_rate == 1.0:

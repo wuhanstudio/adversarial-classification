@@ -17,14 +17,22 @@ import base64
 import concurrent.futures
 
 class DeepAPIBase:
-    def __init__(self):
-        self.distributed = False
+    def __init__(self, concurrency=8):
+        self.concurrency = concurrency
         pass
 
-    def predict(self, *args, **kwargs):
-        return self.predictX(*args, **kwargs) if self.distributed else self.predictO(*args, **kwargs)
+    def predict(self, X):
+        n_targets = 0
+        if type(X) == list:
+            n_targets = len(X)
+        elif type(X) == np.ndarray:
+            n_targets = X.shape[0]
+        else:
+            raise ValueError('Input type not supported...')
 
-    def predictX(self, X, max_workers=8):
+        return self.predictX(X) if n_targets > 1 else self.predictO(X)
+
+    def predictX(self, X):
         """
         - X: numpy array of shape (N, H, W, C)
         """
@@ -53,7 +61,7 @@ class DeepAPIBase:
         y_index = []
         y_executors = {}
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.concurrency) as executor:
             for i, x in enumerate(X):
                 # Load the input image and construct the payload for the request
                 image = Image.fromarray(np.uint8(x * 255.0))
@@ -127,11 +135,11 @@ class DeepAPIBase:
 
 class DeepAPI_VGG16_Cifar10(DeepAPIBase):
 
-    def __init__(self, url):
+    def __init__(self, url, concurrency=8):
         """
         - url: DeepAPI server URL
         """
-        super().__init__()
+        super().__init__(concurrency)
 
         url_parse = urlparse(url)
         self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'vgg16_cifar10')
@@ -142,10 +150,12 @@ class DeepAPI_VGG16_Cifar10(DeepAPIBase):
 
 
 class DeepAPI_VGG16_ImageNet(DeepAPIBase):
-    def __init__(self, url):
+    def __init__(self, url, concurrency=8):
         """
         - url: DeepAPI server URL
         """
+        super().__init__(concurrency)
+
         url_parse = urlparse(url)
         self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'vgg16')
 
