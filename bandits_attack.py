@@ -1,9 +1,18 @@
+import os
+
 import numpy as np
 from tqdm import tqdm
 
 from tensorflow.keras.applications.vgg16 import preprocess_input
 
-SCALE = 255.0
+ENV_MODEL = os.environ.get('ENV_MODEL')
+
+SCALE = 1.0
+PREPROCESS = lambda x: x
+
+if ENV_MODEL == 'keras':
+    SCALE = 255.0
+    PREPROCESS = preprocess_input
 
 ###
 # Different optimization steps
@@ -67,7 +76,7 @@ class BanditsAttack():
         """
         Initialize the attack.
         """
-        y_pred = self.classifier.predict(preprocess_input(x))
+        y_pred = self.classifier.predict(PREPROCESS(x))
 
         x_adv = x.copy()
 
@@ -101,13 +110,14 @@ class BanditsAttack():
 
             exp_noises.append(exp_noise)
 
-        x_query_1 = np.array(x_query_1)
-        x_query_2 = np.array(x_query_2)
-        exp_noises = np.array(exp_noises)
+        if ENV_MODEL == 'keras':
+            x_query_1 = np.array(x_query_1)
+            x_query_2 = np.array(x_query_2)
+            exp_noises = np.array(exp_noises)
 
         # Loss points for finite difference estimator
-        l1 = cross_entropy(self.classifier.predict(preprocess_input(x_query_1)), y) # L(prior + c*noise)
-        l2 = cross_entropy(self.classifier.predict(preprocess_input(x_query_2)), y) # L(prior - c*noise)
+        l1 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_1)), y) # L(prior + c*noise)
+        l2 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_2)), y) # L(prior - c*noise)
 
         for i, img in enumerate(x_adv):
             # Finite differences estimate of directional derivative
@@ -168,28 +178,30 @@ class BanditsAttack():
             y_curr = [y[idx] for idx in not_dones]
             prior_curr = [priors[idx] for idx in not_dones]
 
-            x_curr = np.array(x_curr)
-            x_adv_curr = np.array(x_adv_curr)
-            y_curr = np.array(y_curr)
-            prior_curr = np.array(prior_curr)
+            if ENV_MODEL == 'keras':
+                x_curr = np.array(x_curr)
+                x_adv_curr = np.array(x_adv_curr)
+                y_curr = np.array(y_curr)
+                prior_curr = np.array(prior_curr)
 
             if distributed:
                 x_adv_curr, prior_curr = self.batch(x_curr, x_adv_curr, y_curr, prior_curr, epsilon, fd_eta, image_lr, online_lr, exploration, max_workers, batch)
             else:
                 x_adv_curr, prior_curr = self.step(x_curr, x_adv_curr, y_curr, prior_curr, epsilon, fd_eta, image_lr, online_lr, exploration)
 
-            y_curr = np.argmax(self.classifier.predict(preprocess_input(x_adv_curr)), axis=1)
+            y_curr = np.argmax(self.classifier.predict(PREPROCESS(x_adv_curr)), axis=1)
 
             for i in range(len(not_dones)):
                 x_adv[not_dones[i]] = x_adv_curr[i]
                 priors[not_dones[i]] = prior_curr[i]
                 y_pred_classes[not_dones[i]] = y_curr[i]
 
-            not_dones_mask = not_dones_mask * (y_pred_classes == y)
-
             # Logging stuff
             total_queries += 3 * not_dones_mask
-            max_curr_queries = total_queries.max()
+
+            not_dones_mask = not_dones_mask * (y_pred_classes == y)
+
+            # max_curr_queries = total_queries.max()
 
             success_mask = correct_classified_mask * (1 - not_dones_mask)
             num_success = success_mask.sum()
@@ -200,7 +212,7 @@ class BanditsAttack():
             else:
                 success_queries = ((success_mask * total_queries).sum() / num_success)
             
-            pbar.set_postfix({'Queries': max_curr_queries, 'Success Rate': current_success_rate, 'Avg Queries': success_queries})
+            pbar.set_postfix({'Total Queries': total_queries.sum(), 'Success Rate': current_success_rate, 'Avg Queries': success_queries})
 
             # Early break
             if current_success_rate == 1.0:
