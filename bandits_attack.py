@@ -3,14 +3,17 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-from tensorflow.keras.applications.vgg16 import preprocess_input
 
 ENV_MODEL = os.environ.get('ENV_MODEL')
+
+if ENV_MODEL is None:
+    ENV_MODEL = 'deepapi'
 
 SCALE = 1.0
 PREPROCESS = lambda x: x
 
 if ENV_MODEL == 'keras':
+    from tensorflow.keras.applications.vgg16 import preprocess_input
     SCALE = 255.0
     PREPROCESS = preprocess_input
 
@@ -76,7 +79,7 @@ class BanditsAttack():
         """
         Initialize the attack.
         """
-        y_pred = self.classifier.predict(PREPROCESS(x))
+        y_pred = self.classifier.predict(PREPROCESS(x.copy()))
 
         x_adv = x.copy()
 
@@ -116,8 +119,8 @@ class BanditsAttack():
             exp_noises = np.array(exp_noises)
 
         # Loss points for finite difference estimator
-        l1 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_1)), y) # L(prior + c*noise)
-        l2 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_2)), y) # L(prior - c*noise)
+        l1 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_1.copy())), y) # L(prior + c*noise)
+        l2 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_2.copy())), y) # L(prior - c*noise)
 
         for i, img in enumerate(x_adv):
             # Finite differences estimate of directional derivative
@@ -189,7 +192,7 @@ class BanditsAttack():
             else:
                 x_adv_curr, prior_curr = self.step(x_curr, x_adv_curr, y_curr, prior_curr, epsilon, fd_eta, image_lr, online_lr, exploration)
 
-            y_curr = np.argmax(self.classifier.predict(PREPROCESS(x_adv_curr)), axis=1)
+            y_curr = np.argmax(self.classifier.predict(PREPROCESS(x_adv_curr.copy())), axis=1)
 
             for i in range(len(not_dones)):
                 x_adv[not_dones[i]] = x_adv_curr[i]
