@@ -18,7 +18,11 @@ import concurrent.futures
 
 class DeepAPIBase:
     def __init__(self):
+        self.distributed = False
         pass
+
+    def predict(self, *args, **kwargs):
+        return self.predictX(*args, **kwargs) if self.distributed else self.predictO(*args, **kwargs)
 
     def predictX(self, X, max_workers=8):
         """
@@ -68,7 +72,7 @@ class DeepAPIBase:
         return np.array(y_preds)
 
 
-    def predict(self, X):
+    def predictO(self, X):
         """
         - X: numpy array of shape (N, H, W, C)
         """
