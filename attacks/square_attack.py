@@ -199,7 +199,7 @@ class SquareAttack():
         # Tensorboard
         self.tb = None
         if log_dir is not None:
-            from logger import TensorBoardLogger
+            from utils.logger import TensorBoardLogger
             self.tb = TensorBoardLogger(log_dir)
 
         logits_clean = self.classifier.predictX(x) if distributed else self.classifier.predict(x)

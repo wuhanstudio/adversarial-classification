@@ -11,7 +11,7 @@ ENV_MODEL = 'deepapi'
 
 os.environ['ENV_MODEL'] = ENV_MODEL
 
-from bandits_attack import BanditsAttack
+from attacks.bandits_attack import BanditsAttack
 
 N_SAMPLES = 10
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     # Initialize the Cloud API Model
     if ENV_MODEL == 'deepapi':
-        from deepapi import DeepAPI_VGG16_ImageNet
+        from apis.deepapi import DeepAPI_VGG16_ImageNet
 
         DEEP_API_URL = 'http://localhost:8080'
         model = DeepAPI_VGG16_ImageNet(DEEP_API_URL)

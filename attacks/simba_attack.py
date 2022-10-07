@@ -7,7 +7,7 @@ import numpy as np
 import concurrent.futures
 from tqdm import tqdm
 
-from base_attack import BaseAttack
+from attacks.base_attack import BaseAttack
 
 ENV_MODEL = os.environ.get('ENV_MODEL')
 

@@ -8,8 +8,8 @@ ENV_MODEL = 'keras'
 
 os.environ['ENV_MODEL'] = ENV_MODEL
 
-from simba_attack import SimBA
-from imagenet import load_imagenet
+from attacks.simba_attack import SimBA
+from dataset.imagenet import load_imagenet
 
 N_SAMPLES = 10
 CONCURRENCY = 1
@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     # Initialize the Cloud API Model
     if ENV_MODEL == 'deepapi':
-        from deepapi import DeepAPI_VGG16_ImageNet
+        from apis.deepapi import DeepAPI_VGG16_ImageNet
 
         DEEP_API_URL = 'http://localhost:8080'
         model = DeepAPI_VGG16_ImageNet(DEEP_API_URL, concurrency=CONCURRENCY)

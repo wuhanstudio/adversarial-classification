@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from deepapi import DeepAPI_VGG16_ImageNet
+from apis.deepapi import DeepAPI_VGG16_ImageNet
 import fiftyone.zoo as foz
 
 import numpy as np
 from PIL import Image
 
-from square_attack import SquareAttack
+from attacks.square_attack import SquareAttack
 
 def dense_to_onehot(y, n_classes):
     y_onehot = np.zeros([len(y), n_classes], dtype=bool)
