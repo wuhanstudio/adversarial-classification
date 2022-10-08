@@ -3,8 +3,8 @@ import os
 import numpy as np
 from PIL import Image
 
-ENV_MODEL = 'keras'
-# ENV_MODEL = 'deepapi'
+# ENV_MODEL = 'keras'
+ENV_MODEL = 'deepapi'
 
 ENV_MODEL_TYPE = 'inceptionv3'
 # ENV_MODEL_TYPE = 'resnet50'
@@ -17,7 +17,7 @@ from attacks.simba_attack import SimBA
 from dataset.imagenet import load_imagenet
 
 N_SAMPLES = 100
-CONCURRENCY = 1
+CONCURRENCY = 8
 
 if __name__ == "__main__":
 
