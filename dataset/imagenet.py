@@ -4,9 +4,13 @@ from PIL import Image
 import fiftyone.zoo as foz
 
 ENV_MODEL = os.environ.get('ENV_MODEL')
+ENV_MODEL_TYPE = os.environ.get('ENV_MODEL_TYPE')
 
 if ENV_MODEL is None:
     ENV_MODEL = 'deepapi'
+
+if ENV_MODEL_TYPE is None:
+    ENV_MODEL_TYPE = 'inceptionv3'
 
 def load_imagenet(n_samples):
     x_test = []
@@ -20,7 +24,13 @@ def load_imagenet(n_samples):
         y = imagenet_labels.index(sample['ground_truth']['label'])
 
         if ENV_MODEL == 'keras':
-            x = x.resize((224, 224))
+            if ENV_MODEL_TYPE == 'inceptionv3':
+                x = x.resize((299, 299))
+            elif ENV_MODEL_TYPE == 'resnet50':
+                x = x.resize((224, 224))
+            elif ENV_MODEL_TYPE == 'vgg16':
+                x = x.resize((224, 224))
+
             x = np.array(x)
 
         if ENV_MODEL == 'deepapi':

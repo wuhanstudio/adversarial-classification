@@ -1,8 +1,9 @@
 tqdm
+requests
 numpy
 pillow
-requests
 matplotlib
+fiftyone
 tensorflow
 tensorboard
-fiftyone
+google-cloud-vision
