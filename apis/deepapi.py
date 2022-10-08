@@ -133,6 +133,58 @@ class DeepAPIBase:
         return self.labels[i]
 
 
+class DeepAPI_ImageNet(DeepAPIBase):
+    def __init__(self, concurrency=8):
+        super().__init__(concurrency)
+
+        # Load the Keras application labels 
+        with urllib.request.urlopen("https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json") as l_url:
+            imagenet_json = json.load(l_url)
+
+            # imagenet_json['134'] = ["n02012849", "crane"],
+            imagenet_json['517'] = ['n02012849', 'crane_bird']
+
+            # imagenet_json['638'] = ['n03710637', 'maillot']
+            imagenet_json['639'] = ['n03710721', 'maillot_tank_suit']
+
+            imagenet_labels = [imagenet_json[str(k)][1] for k in range(len(imagenet_json))]
+
+            self.labels = imagenet_labels
+
+
+class DeepAPI_Inceptionv3_ImageNet(DeepAPI_ImageNet):
+    def __init__(self, url, concurrency=8):
+        """
+        - url: DeepAPI server URL
+        """
+        super().__init__(concurrency)
+
+        url_parse = urlparse(url)
+        self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'inceptionv3')
+
+
+class DeepAPI_Resnet50_ImageNet(DeepAPI_ImageNet):
+    def __init__(self, url, concurrency=8):
+        """
+        - url: DeepAPI server URL
+        """
+        super().__init__(concurrency)
+
+        url_parse = urlparse(url)
+        self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'resnet50')
+
+
+class DeepAPI_VGG16_ImageNet(DeepAPI_ImageNet):
+    def __init__(self, url, concurrency=8):
+        """
+        - url: DeepAPI server URL
+        """
+        super().__init__(concurrency)
+
+        url_parse = urlparse(url)
+        self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'vgg16')
+
+
 class DeepAPI_VGG16_Cifar10(DeepAPIBase):
 
     def __init__(self, url, concurrency=8):
@@ -147,28 +199,3 @@ class DeepAPI_VGG16_Cifar10(DeepAPIBase):
         # cifar10 labels
         cifar10_labels = ['frog', 'deer', 'cat', 'bird', 'dog', 'truck', 'ship', 'airplane', 'horse', 'automobile']
         self.labels = cifar10_labels
-
-
-class DeepAPI_VGG16_ImageNet(DeepAPIBase):
-    def __init__(self, url, concurrency=8):
-        """
-        - url: DeepAPI server URL
-        """
-        super().__init__(concurrency)
-
-        url_parse = urlparse(url)
-        self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'vgg16')
-
-        # # Load the Keras application labels 
-        with urllib.request.urlopen("https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json") as l_url:
-            imagenet_json = json.load(l_url)
-
-            # imagenet_json['134'] = ["n02012849", "crane"],
-            imagenet_json['517'] = ['n02012849', 'crane_bird']
-
-            # imagenet_json['638'] = ['n03710637', 'maillot']
-            imagenet_json['639'] = ['n03710721', 'maillot_tank_suit']
-
-            imagenet_labels = [imagenet_json[str(k)][1] for k in range(len(imagenet_json))]
-
-            self.labels = imagenet_labels
