@@ -142,11 +142,10 @@ class SimBA(BaseAttack):
         Initiate the attack.
 
         - x: input data
+        - y: input labels
         - epsilon: perturbation on each pixel
         - max_it: number of iterations
-        - distributed: if True, use distributed attack
-        - batch: number of queries per worker
-        - max_workers: number of workers
+        - concurrency: number of concurrent threads
         """
 
         n_targets = 0
@@ -235,7 +234,7 @@ class SimBA(BaseAttack):
             else:
                 success_queries = ((success_mask * total_queries).sum() / num_success)
 
-            pbar.set_postfix({'Total Queries': total_queries.sum(), 'Mean Higest Prediction': y_pred[correct_classified].max(axis=1).mean(), 'Success Rate': current_success_rate, 'Avg Queries': success_queries})
+            pbar.set_postfix({'Total Queries': total_queries.sum(), 'Mean Higest Prediction': y_pred[correct_classified].max(axis=1).mean(), 'Attack Success Rate': current_success_rate, 'Avg Queries': success_queries})
 
             # Early break
             if current_success_rate == 1.0:
