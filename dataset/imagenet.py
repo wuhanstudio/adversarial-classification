@@ -12,12 +12,14 @@ if ENV_MODEL is None:
 if ENV_MODEL_TYPE is None:
     ENV_MODEL_TYPE = 'inceptionv3'
 
+imagenet_dataset = foz.load_zoo_dataset("imagenet-sample")
+
+imagenet_labels = foz.load_zoo_dataset_info("imagenet-sample").classes
+
 def load_imagenet(n_samples):
     x_test = []
     y_test = []
 
-    imagenet_dataset = foz.load_zoo_dataset("imagenet-sample")
-    imagenet_labels = foz.load_zoo_dataset_info("imagenet-sample").classes
 
     for sample in imagenet_dataset:
         x = Image.open(str(sample['filepath']))

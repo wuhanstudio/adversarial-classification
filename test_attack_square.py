@@ -1,51 +1,90 @@
-from datetime import datetime
-
-from apis.deepapi import DeepAPI_VGG16_ImageNet
-import fiftyone.zoo as foz
-
+import os
 import numpy as np
 from PIL import Image
+from datetime import datetime
+
+# ENV_MODEL = 'keras'
+ENV_MODEL = 'deepapi'
+
+DEEP_API_URL = 'http://localhost:8080'
+
+ENV_MODEL_TYPE = 'inceptionv3'
+# ENV_MODEL_TYPE = 'resnet50'
+# ENV_MODEL_TYPE = 'vgg16'
+
+os.environ['ENV_MODEL'] = ENV_MODEL
+os.environ['ENV_MODEL_TYPE'] = ENV_MODEL_TYPE
 
 from attacks.square_attack import SquareAttack
+from dataset.imagenet import load_imagenet, imagenet_labels
+
+N_SAMPLES = 10
+CONCURRENCY = 8
 
 def dense_to_onehot(y, n_classes):
     y_onehot = np.zeros([len(y), n_classes], dtype=bool)
     y_onehot[np.arange(len(y)), y] = True
     return y_onehot
 
-N_SAMPLES = 100
-
 if __name__ == '__main__':
 
-    x_test = []
-    y_test = []
+    x_test, y_test = load_imagenet(N_SAMPLES)
 
-    imagenet_dataset = foz.load_zoo_dataset("imagenet-sample")
-    imagenet_labels = foz.load_zoo_dataset_info("imagenet-sample").classes
+    if ENV_MODEL == 'keras':
+        x_test = np.array(x_test)
+        y_test = np.array(y_test)
 
-    for sample in imagenet_dataset:
-        x = Image.open(str(sample['filepath']))
-        y = imagenet_labels.index(sample['ground_truth']['label'])
+    # Initialize the Cloud API Model
+    if ENV_MODEL == 'deepapi':
 
-        x_test.append(np.array(x) / 255.0)
-        y_test.append(y)
+        if ENV_MODEL_TYPE == 'inceptionv3':
+            from apis.deepapi import DeepAPI_Inceptionv3_ImageNet
+            model = DeepAPI_Inceptionv3_ImageNet(DEEP_API_URL, concurrency=CONCURRENCY)
+        elif ENV_MODEL_TYPE == 'resnet50':
+            from apis.deepapi import DeepAPI_Resnet50_ImageNet
+            model = DeepAPI_Resnet50_ImageNet(DEEP_API_URL, concurrency=CONCURRENCY)
+        elif ENV_MODEL_TYPE == 'vgg16':
+            from apis.deepapi import DeepAPI_VGG16_ImageNet
+            model = DeepAPI_VGG16_ImageNet(DEEP_API_URL, concurrency=CONCURRENCY)
 
-    x_test = x_test[:N_SAMPLES]
-    y_test = y_test[:N_SAMPLES]
+    elif ENV_MODEL == 'keras':
 
-    model = DeepAPI_VGG16_ImageNet('http://localhost:8080')
+        if ENV_MODEL_TYPE == 'inceptionv3':
+            from tensorflow.keras.applications.inception_v3 import InceptionV3
+            model = InceptionV3(weights='imagenet')
+        elif ENV_MODEL_TYPE == 'resnet50':
+            from tensorflow.keras.applications.resnet50 import ResNet50
+            model = ResNet50(weights='imagenet')
+        elif ENV_MODEL_TYPE == 'vgg16':
+            from tensorflow.keras.applications.vgg16 import VGG16
+            model = VGG16(weights='imagenet')
 
     y_target_onehot = dense_to_onehot(y_test, n_classes=len(imagenet_labels))
 
     # Note: we count the queries only across correctly classified images
     square_attack = SquareAttack(model)
+
     log_dir = 'logs/' + datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    # x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, n_iters=3000, distributed=False, log_dir=log_dir)
-    x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, n_iters=3000, distributed=True, batch=16, log_dir=log_dir)
+    # Horizontally Distributed Attack
+    # x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, epsilon = 0.05, max_it=1000, log_dir=log_dir)
 
+    # Vertically Distributed Attack
+    x_adv = []
+    n_queries = []
+    for xt, yt in zip(x_test, y_target_onehot):
+        xa, nq = square_attack.attack(np.array([xt]), np.array([yt]), False, epsilon = 0.05, max_it=1000, log_dir=log_dir, concurrency=CONCURRENCY)
+        x_adv.append(xa)
+        n_queries.append(nq)
+
+    # Save the adversarial images
     for i, xa in enumerate(x_adv):
-        im = Image.fromarray(np.array(np.uint8(x_test[i]*255.0)))
-        im_adv = Image.fromarray(np.array(np.uint8(xa*255.0)))
-        im.save(f"images/x_{i}.jpg")
-        im_adv.save(f"images/x_{i}_adv.jpg")
+        if ENV_MODEL == 'keras':
+            im = Image.fromarray(np.array(np.uint8(x_test[i])))
+            im_adv = Image.fromarray(np.array(np.uint8(xa)))
+        elif ENV_MODEL == 'deepapi':
+            im = Image.fromarray(np.array(np.uint8(x_test[i]*255.0)))
+            im_adv = Image.fromarray(np.array(np.uint8(xa*255.0)))
+
+        im.save(f"images/x_{i}.jpg", quality=95)
+        im_adv.save(f"images/x_{i}_adv.jpg", quality=95)

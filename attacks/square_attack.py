@@ -1,6 +1,30 @@
+import os
 import numpy as np
 from tqdm import tqdm
 import concurrent.futures
+
+ENV_MODEL = os.environ.get('ENV_MODEL')
+ENV_MODEL_TYPE = os.environ.get('ENV_MODEL_TYPE')
+
+if ENV_MODEL is None:
+    ENV_MODEL = 'deepapi'
+
+if ENV_MODEL_TYPE is None:
+    ENV_MODEL_TYPE = 'inceptionv3'
+
+SCALE = 1.0
+PREPROCESS = lambda x: x
+
+if ENV_MODEL == 'keras':
+    if ENV_MODEL_TYPE == 'inceptionv3':
+        from tensorflow.keras.applications.inception_v3 import preprocess_input
+    elif ENV_MODEL_TYPE == 'resnet50':
+        from tensorflow.keras.applications.resnet50 import preprocess_input
+    elif ENV_MODEL_TYPE == 'vgg16':
+        from tensorflow.keras.applications.vgg16 import preprocess_input
+
+    SCALE = 255
+    PREPROCESS = preprocess_input
 
 class SquareAttack():
 
@@ -9,7 +33,7 @@ class SquareAttack():
         Create a class: `SquareAttack` instance.
         - classifier: model to attack
         """
-        self.min_val, self.max_val = 0.0, 1.0
+        self.min_val, self.max_val = 0.0, 1.0 * SCALE
         self.classifier = classifier
 
     def p_selection(self, p_init, it, n_iters):
@@ -62,16 +86,19 @@ class SquareAttack():
         return loss.flatten()
 
 
-    def init(self, x, y, eps, targeted, loss_type, distributed):
+    def init(self, x, y, epsilon, targeted, loss_type):
         # Initialize the attack
         x_adv = []
         for i, xi in enumerate(x):
             h, w, c = xi.shape[:]
             # [1, w, c], i.e. vertical stripes work best for untargeted attacks
-            init_delta = np.random.choice([-eps, eps], size=[len(x), 1, w, c])
+            init_delta = np.random.choice([-epsilon, epsilon], size=[len(x), 1, w, c])
             x_adv.append(np.clip(xi + init_delta[i], self.min_val, self.max_val))
 
-        logits = self.classifier.predictX(x_adv) if distributed else self.classifier.predict(x_adv)
+        if ENV_MODEL == 'keras':
+            x_adv = np.array(x_adv)
+
+        logits = self.classifier.predict(PREPROCESS(x_adv.copy()))
 
         n_queries = np.ones(len(x))  # ones because we have already used 1 query
 
@@ -81,11 +108,14 @@ class SquareAttack():
         return x_adv, margin_min, loss_min, n_queries
 
 
-    def step(self, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, distributed=True):
-        """ One step of the attack. """
+    def step(self, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type):
+        """ Horicontal: One step of the attack. """
 
         idx_to_fool = margin_min > 0
-        idx_to_fool = [i for i, x in enumerate(idx_to_fool) if x]
+        idx_to_fool = [i for i, v in enumerate(idx_to_fool) if v]
+
+        if len(idx_to_fool) == 0:
+            return x_adv, margin_min, loss_min, n_queries
 
         x_curr = []
         x_adv_curr = []
@@ -94,6 +124,11 @@ class SquareAttack():
             x_curr.append(x[idx])
             x_adv_curr.append(x_adv[idx])
             y_curr.append(y[idx])
+
+        if ENV_MODEL == 'keras':
+            x_curr = np.array(x_curr)
+            x_adv_curr = np.array(x_adv_curr)
+            y_curr = np.array(y_curr)
 
         loss_min_curr, margin_min_curr = loss_min[idx_to_fool], margin_min[idx_to_fool]
         deltas = [ (xa - xc) for xa, xc in zip(x_adv_curr, x_curr) ]
@@ -117,7 +152,10 @@ class SquareAttack():
 
         x_new = [  np.clip(xc + d, self.min_val, self.max_val) for xc, d in zip(x_curr, deltas) ]
 
-        logits = self.classifier.predictX(x_new) if distributed else self.classifier.predict(x_new)
+        if ENV_MODEL == 'keras':
+            x_new = np.array(x_new)
+
+        logits = self.classifier.predict(PREPROCESS(x_new.copy()))
 
         loss = self.model_loss(y_curr, logits, targeted, loss_type=loss_type)
         margin = self.model_loss(y_curr, logits, targeted, loss_type='margin_loss')
@@ -135,7 +173,8 @@ class SquareAttack():
 
         return x_adv, margin_min, loss_min, n_queries
 
-    def batch(self, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, batch, max_workers=40):
+    def batch(self, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, concurrency):
+        """ Verticle: Multiple steps of the attack. """
 
         idx_to_fool = margin_min > 0
         idx_to_fool = [i for i, v in enumerate(idx_to_fool) if v]
@@ -148,8 +187,8 @@ class SquareAttack():
 
         deltas = [ (xa - xc) for xa, xc in zip(x_adv_curr, x_curr) ]
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_url = {executor.submit(self.step, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, len(x) <= batch): j for j in range(0, batch)}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_url = {executor.submit(self.step, x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type): j for j in range(0, concurrency)}
             for future in concurrent.futures.as_completed(future_to_url):
                 j = future_to_url[future]
                 try:
@@ -167,7 +206,7 @@ class SquareAttack():
 
         x_new = [  np.clip(xc + d, self.min_val, self.max_val) for xc, d in zip(x_curr, deltas) ]
 
-        logits = self.classifier.predictX(x_new)
+        logits = self.classifier.predict(PREPROCESS(x_new.copy()))
 
         loss = self.model_loss(y_curr, logits, targeted, loss_type=loss_type)
         margin = self.model_loss(y_curr, logits, targeted, loss_type='margin_loss')
@@ -185,11 +224,17 @@ class SquareAttack():
 
         return x_adv, margin_min, loss_min, n_queries
 
-    def attack(self, x, y, targeted, eps = 8 / 255.0, n_iters = 1000, p_init = 0.05, loss_type = 'margin_loss', log_dir = None, distributed=True, batch=16): 
+    def attack(self, x, y, targeted, epsilon = 0.05 * SCALE, max_it = 1000, p_init = 0.05, loss_type = 'margin_loss', log_dir = None, concurrency=1): 
         """ The Linf square attack """
+        n_targets = 0
+        if type(x) == list:
+            n_targets = len(x)
+        elif type(x) == np.ndarray:
+            n_targets = x.shape[0]
+        else:
+            raise ValueError('Input type not supported...')
 
-        if not distributed:
-            batch = 1
+        assert n_targets > 0
 
         assert(len(x) > 0)
         assert(len(x) == len(y))
@@ -202,41 +247,63 @@ class SquareAttack():
             from utils.logger import TensorBoardLogger
             self.tb = TensorBoardLogger(log_dir)
 
-        logits_clean = self.classifier.predictX(x) if distributed else self.classifier.predict(x)
+        logits_clean = self.classifier.predict(PREPROCESS(x.copy()))
 
         corr_classified = [(logits_clean[i].argmax() == y_label[i]) for i in range(len(x))]
 
         # important to check that the model was restored correctly and the clean accuracy is high
         print('Clean accuracy: {:.2%}'.format(np.mean(corr_classified)))
 
+        if np.mean(corr_classified) == 0:
+            print('No clean examples classified correctly. Aborting...')
+            n_queries = np.ones(len(x))  # ones because we have already used 1 query
+            return x, n_queries
+
+        if ENV_MODEL == 'keras':
+            pbar = tqdm(range(0, max_it), desc="Non-Distributed Square Attack")
+        elif ENV_MODEL == 'deepapi':
+            if n_targets > 1:
+                # Horizontally Distributed Attack
+                pbar = tqdm(range(0, max_it - 1), desc="Distributed Square Attack (Horizontal)")
+            else:
+                # Vertically Distributed Attack
+                pbar = tqdm(range(0, max_it - 1, concurrency), desc="Distributed Square Attack (Vertical)")
+        else:
+            raise ValueError('Environment not supported...')
+
         np.random.seed(0)  # important to leave it here as well
 
         # Only attack the correctly classified examples
-        for i, cor in enumerate(corr_classified):
-            if cor is False:
-                x.pop(i)
-                y.pop(i)
+        y = y[corr_classified]
+        if type(x) == list:
+            idx_corr_classified = [i for i, v in enumerate(corr_classified) if v]
+            x = [xi for i, xi in enumerate(x) if i in idx_corr_classified]
+        elif type(x) == np.ndarray:
+            x = x[corr_classified]
 
-        x_adv, margin_min, loss_min, n_queries = self.init(x, y, eps, targeted, loss_type, distributed)
-
-        if distributed:
-            pbar = tqdm(range(0, n_iters - 1, batch), desc="Distributed Square Attack")
-        else:
-            pbar = tqdm(range(0, n_iters - 1), desc="Square Attack")
+        x_adv, margin_min, loss_min, n_queries = self.init(x, y, epsilon * SCALE, targeted, loss_type)
 
         # Main loop
 
         for i_iter in pbar:
 
-            if distributed:
-                x_adv, margin_min, loss_min, n_queries = self.batch(x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, batch=batch)
+            if ENV_MODEL == 'keras':
+                x_adv, margin_min, loss_min, n_queries = self.step(x, y, x_adv, margin_min, loss_min, n_queries, i_iter, max_it, p_init, epsilon * SCALE, targeted, loss_type)
+
+            elif ENV_MODEL == 'deepapi':
+                if n_targets > 1:
+                    # Horizontally Distributed Attack
+                    x_adv, margin_min, loss_min, n_queries = self.step(x, y, x_adv, margin_min, loss_min, n_queries, i_iter, max_it, p_init, epsilon * SCALE, targeted, loss_type)
+                else:
+                    # Vertically Distributed Attack
+                    x_adv, margin_min, loss_min, n_queries = self.batch(x, y, x_adv, margin_min, loss_min, n_queries, i_iter, max_it, p_init, epsilon * SCALE, targeted, loss_type, concurrency=concurrency)
             else:
-                x_adv, margin_min, loss_min, n_queries = self.step(x, y, x_adv, margin_min, loss_min, n_queries, i_iter, n_iters, p_init, eps, targeted, loss_type, distributed)
+                raise ValueError('Model type not supported...')
 
             acc, acc_corr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, i_iter, len(x))
 
-            pbar.set_postfix({'it': i_iter+batch, 'accuracy': acc, 'mean queries': mean_nq_ae, 'avg margin': avg_margin_min})
-    
+            pbar.set_postfix({'Total Queries': n_queries.sum(), 'Average Margin': avg_margin_min, 'Attack Success Rate': 1-acc, 'Avg Queries': mean_nq_ae})
+
             # print('{}: acc={:.2%} acc_corr={:.2%} avg#q_ae={:.2f} med#q={:.1f}, avg_margin={:.2f} (n_ex={}, eps={:.3f})'.
                 # format(i_iter+1, acc, acc_corr, mean_nq_ae, median_nq_ae, avg_margin_min, len(x), eps))
 
