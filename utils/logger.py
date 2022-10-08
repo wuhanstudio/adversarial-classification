@@ -1,5 +1,5 @@
 import tensorflow as tf
-tf.compat.v1.disable_eager_execution()
+# tf.compat.v1.disable_eager_execution()
 from io import StringIO
 
 import matplotlib.pyplot as plt
@@ -16,7 +16,7 @@ class TensorBoardLogger(object):
 
     def __init__(self, log_dir):
         """Creates a summary writer logging to log_dir."""
-        self.writer = tf.compat.v1.summary.FileWriter(log_dir)
+        self.writer = tf.summary.create_file_writer(log_dir)
 
     def log_scalar(self, tag, value, step):
         """Log a scalar variable.
@@ -29,9 +29,9 @@ class TensorBoardLogger(object):
         step : int
             training iteration
         """
-        summary = tf.compat.v1.Summary(value=[tf.compat.v1.Summary.Value(tag=tag,
-                                                     simple_value=value)])
-        self.writer.add_summary(summary, step)
+        with self.writer.as_default():
+            tf.summary.scalar(tag, value, step=step)
+            self.writer.flush()
 
     def log_images(self, tag, images, step):
         """Logs a list of images."""
