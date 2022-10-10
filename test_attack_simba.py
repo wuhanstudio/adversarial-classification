@@ -68,12 +68,8 @@ if __name__ == "__main__":
 
     # Save the adversarial images
     for i, xa in enumerate(x_adv):
-        if ENV_MODEL == 'keras':
-            im = Image.fromarray(np.array(np.uint8(x_test[i])))
-            im_adv = Image.fromarray(np.array(np.uint8(xa)))
-        elif ENV_MODEL == 'deepapi':
-            im = Image.fromarray(np.array(np.uint8(x_test[i]*255.0)))
-            im_adv = Image.fromarray(np.array(np.uint8(xa*255.0)))
+        im = Image.fromarray(np.array(np.uint8(x_test[i])))
+        im_adv = Image.fromarray(np.array(np.uint8(xa)))
 
-        im.save(f"images/x_{i}.jpg", quality=95)
-        im_adv.save(f"images/x_{i}_adv.jpg", quality=95)
+        im.save(f"images/x_{i}.jpg", subsampling=0, quality=100)
+        im_adv.save(f"images/x_{i}_adv.jpg", subsampling=0, quality=100)

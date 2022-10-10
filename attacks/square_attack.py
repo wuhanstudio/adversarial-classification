@@ -12,7 +12,7 @@ if ENV_MODEL is None:
 if ENV_MODEL_TYPE is None:
     ENV_MODEL_TYPE = 'inceptionv3'
 
-SCALE = 1.0
+SCALE = 255
 PREPROCESS = lambda x: x
 
 if ENV_MODEL == 'keras':
@@ -23,7 +23,6 @@ if ENV_MODEL == 'keras':
     elif ENV_MODEL_TYPE == 'vgg16':
         from tensorflow.keras.applications.vgg16 import preprocess_input
 
-    SCALE = 255
     PREPROCESS = preprocess_input
 
 class SquareAttack():
@@ -224,7 +223,7 @@ class SquareAttack():
 
         return x_adv, margin_min, loss_min, n_queries
 
-    def attack(self, x, y, targeted, epsilon = 0.05 * SCALE, max_it = 1000, p_init = 0.05, loss_type = 'margin_loss', log_dir = None, concurrency=1): 
+    def attack(self, x, y, targeted, epsilon = 0.05, max_it = 1000, p_init = 0.05, loss_type = 'margin_loss', log_dir = None, concurrency=1): 
         """ The Linf square attack """
         n_targets = 0
         if type(x) == list:

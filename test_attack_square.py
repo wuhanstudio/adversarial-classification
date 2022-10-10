@@ -18,7 +18,7 @@ os.environ['ENV_MODEL_TYPE'] = ENV_MODEL_TYPE
 from attacks.square_attack import SquareAttack
 from dataset.imagenet import load_imagenet, imagenet_labels
 
-N_SAMPLES = 10
+N_SAMPLES = 100
 CONCURRENCY = 8
 
 def dense_to_onehot(y, n_classes):
@@ -67,24 +67,20 @@ if __name__ == '__main__':
     log_dir = 'logs/' + datetime.now().strftime("%Y%m%d-%H%M%S")
 
     # Horizontally Distributed Attack
-    # x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, epsilon = 0.05, max_it=1000, log_dir=log_dir)
+    x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, epsilon = 0.05, max_it=1000, log_dir=log_dir)
 
     # Vertically Distributed Attack
-    x_adv = []
-    n_queries = []
-    for xt, yt in zip(x_test, y_target_onehot):
-        xa, nq = square_attack.attack(np.array([xt]), np.array([yt]), False, epsilon = 0.05, max_it=1000, log_dir=log_dir, concurrency=CONCURRENCY)
-        x_adv.append(xa)
-        n_queries.append(nq)
+    # x_adv = []
+    # n_queries = []
+    # for xt, yt in zip(x_test, y_target_onehot):
+    #     xa, nq = square_attack.attack(np.array([xt]), np.array([yt]), False, epsilon = 0.05, max_it=1000, log_dir=log_dir, concurrency=CONCURRENCY)
+    #     x_adv.append(xa)
+    #     n_queries.append(nq)
 
     # Save the adversarial images
     for i, xa in enumerate(x_adv):
-        if ENV_MODEL == 'keras':
-            im = Image.fromarray(np.array(np.uint8(x_test[i])))
-            im_adv = Image.fromarray(np.array(np.uint8(xa)))
-        elif ENV_MODEL == 'deepapi':
-            im = Image.fromarray(np.array(np.uint8(x_test[i]*255.0)))
-            im_adv = Image.fromarray(np.array(np.uint8(xa*255.0)))
+        im = Image.fromarray(np.array(np.uint8(x_test[i])))
+        im_adv = Image.fromarray(np.array(np.uint8(xa)))
 
-        im.save(f"images/x_{i}.jpg", quality=95)
-        im_adv.save(f"images/x_{i}_adv.jpg", quality=95)
+        im.save(f"images/x_{i}.jpg", subsampling=0, quality=100)
+        im_adv.save(f"images/x_{i}_adv.jpg", subsampling=0, quality=100)

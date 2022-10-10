@@ -6,8 +6,11 @@ import os
 import numpy as np
 import concurrent.futures
 from tqdm import tqdm
+from attacks.bandits_attack import SCALE
 
 from attacks.base_attack import BaseAttack
+
+SCALE = 255
 
 ENV_MODEL = os.environ.get('ENV_MODEL')
 ENV_MODEL_TYPE = os.environ.get('ENV_MODEL_TYPE')
@@ -18,7 +21,6 @@ if ENV_MODEL is None:
 if ENV_MODEL_TYPE is None:
     ENV_MODEL_TYPE = 'inceptionv3'
 
-SCALE = 1.0
 PREPROCESS = lambda x: x
 
 if ENV_MODEL == 'keras':
@@ -29,7 +31,6 @@ if ENV_MODEL == 'keras':
     elif ENV_MODEL_TYPE == 'vgg16':
         from tensorflow.keras.applications.vgg16 import preprocess_input
 
-    SCALE = 255
     PREPROCESS = preprocess_input
 
 def proj_lp(v, xi=0.1, p=2):
@@ -137,7 +138,7 @@ class SimBA(BaseAttack):
 
         return x_adv, y_adv
 
-    def attack(self, x, y, epsilon=0.05*SCALE, max_it=1000, concurrency=1):
+    def attack(self, x, y, epsilon=0.05, max_it=1000, concurrency=1):
         """
         Initiate the attack.
 
