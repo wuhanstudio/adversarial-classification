@@ -3,18 +3,26 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-
 ENV_MODEL = os.environ.get('ENV_MODEL')
+ENV_MODEL_TYPE = os.environ.get('ENV_MODEL_TYPE')
 
 if ENV_MODEL is None:
     ENV_MODEL = 'deepapi'
 
-SCALE = 1.0
+if ENV_MODEL_TYPE is None:
+    ENV_MODEL_TYPE = 'inceptionv3'
+
+SCALE = 255
 PREPROCESS = lambda x: x
 
 if ENV_MODEL == 'keras':
-    from tensorflow.keras.applications.vgg16 import preprocess_input
-    SCALE = 255.0
+    if ENV_MODEL_TYPE == 'inceptionv3':
+        from tensorflow.keras.applications.inception_v3 import preprocess_input
+    elif ENV_MODEL_TYPE == 'resnet50':
+        from tensorflow.keras.applications.resnet50 import preprocess_input
+    elif ENV_MODEL_TYPE == 'vgg16':
+        from tensorflow.keras.applications.vgg16 import preprocess_input
+
     PREPROCESS = preprocess_input
 
 ###
@@ -48,24 +56,29 @@ def linf_step(x, g, lr):
 
 def cross_entropy(y_pred, y_true):
     """
-    y_pred is the output from fully connected layer (num_examples x num_classes)
+    y_pred is the softmax output of the model
     y_true is labels (num_examples x 1)
     	Note that y is not one-hot encoded vector. 
     	It can be computed as y.argmax(axis=1) from one-hot encoded vectors of labels if required.
     """
-    def softmax(X):
-        exps = np.exp(X - np.max(X))
-        return exps / np.sum(exps)
 
     y_true = np.array(y_true)
     m = y_true.shape[0]
-    p = softmax(y_pred)
+
+    # We dont need to compute softmax, since y_pred is already softmaxed
+    # from scipy.special import softmax
+    # p = softmax(y_pred)
+    p = y_pred
+
     # We use multidimensional array indexing to extract 
     # softmax probability of the correct label for each sample.
     # Refer to https://docs.scipy.org/doc/numpy/user/basics.indexing.html#indexing-multi-dimensional-arrays for understanding multidimensional array indexing.
     log_likelihood = -np.log(p[range(m), y_true])
+
+    # No reduction
     # loss = np.sum(log_likelihood) / m
-    return log_likelihood / m
+
+    return log_likelihood
 
 class BanditsAttack():
     def __init__(self,  classifier):
@@ -88,6 +101,9 @@ class BanditsAttack():
             h, w, c = x[i].shape
             priors.append(np.zeros((h, w, c)))
     
+        if ENV_MODEL == 'keras':
+            priors = np.array(priors)
+
         return x_adv, y_pred, priors
 
     def step(self, x, x_adv, y, priors, epsilon, fd_eta, image_lr, online_lr, exploration):
@@ -108,8 +124,15 @@ class BanditsAttack():
             q1 = priors[i] + exp_noise
             q2 = priors[i] - exp_noise
 
-            x_query_1.append(img + fd_eta * q1 / np.linalg.norm(q1))
-            x_query_2.append(img + fd_eta * q2 / np.linalg.norm(q2))
+            norm_q1 = np.linalg.norm(q1)
+            norm_q2 = np.linalg.norm(q2)
+
+            # The original paper did not clip the noise
+            # x_query_1.append(img + fd_eta * (q1 / (1e-8 if norm_q1 == 0.0 else norm_q1)))
+            # x_query_2.append(img + fd_eta * (q2 / (1e-8 if norm_q2 == 0.0 else norm_q2)))
+
+            x_query_1.append(np.uint8(np.clip(img + fd_eta * (q1 / (1e-8 if norm_q1 == 0.0 else norm_q1)), 0, 1.0 * SCALE)))
+            x_query_2.append(np.uint8(np.clip(img + fd_eta * (q2 / (1e-8 if norm_q2 == 0.0 else norm_q2)), 0, 1.0 * SCALE)))
 
             exp_noises.append(exp_noise)
 
@@ -128,6 +151,7 @@ class BanditsAttack():
             # 2-query gradient estimate
             est_grad = est_deriv * exp_noises[i]
             # Update the prior with the estimated gradient
+
             priors[i] = eg_step(priors[i], est_grad, online_lr)
 
             ## Update the image:
@@ -136,24 +160,30 @@ class BanditsAttack():
             img = x[i] + np.clip(img - x[i], -epsilon, epsilon)
             img = np.clip(img, 0, 1 * SCALE)
 
-            x_adv[i] = img
-
-        # y_pred = self.classifier.predict(x_adv)
+            x_adv[i] = np.uint8(img)
 
         return x_adv, priors
 
 
-    def attack(self, x, y, epsilon=0.05 * SCALE, fd_eta=0.01 * SCALE, image_lr=0.01*SCALE, online_lr=100, exploration=1.0, max_it=10000, distributed=False, batch=50, max_workers=10):
+    def attack(self, x, y, epsilon=0.05, fd_eta=0.1, image_lr=0.01, online_lr=100, exploration=1.0, max_it=10000, concurrency=1):
         """
         Initiate the attack.
 
         - x: input data
+        - y: input labels
         - epsilon: perturbation on each pixel
         - max_it: number of iterations
-        - distributed: if True, use distributed attack
-        - batch: number of queries per worker
-        - max_workers: number of workers
         """
+
+        n_targets = 0
+        if type(x) == list:
+            n_targets = len(x)
+        elif type(x) == np.ndarray:
+            n_targets = x.shape[0]
+        else:
+            raise ValueError('Input type not supported...')
+
+        assert n_targets > 0
 
         x_adv, y_pred, priors = self.init(x)
 
@@ -162,13 +192,21 @@ class BanditsAttack():
         correct_classified_mask = (y_pred_classes == y)
         not_dones_mask = correct_classified_mask.copy()
 
+        correct_classified = [i for i, v in enumerate(correct_classified_mask) if v]
+
         print('Clean accuracy: {:.2%}'.format(np.mean(correct_classified_mask)))
 
-        if distributed:
-            pbar = tqdm(range(0, max_it, batch), desc="Distributed Bandits Attack")
+        if ENV_MODEL == 'keras':
+            pbar = tqdm(range(0, max_it), desc="Non-Distributed Bandits Attack")
+        elif ENV_MODEL == 'deepapi':
+            if n_targets > 1:
+                # Horizontally Distributed Attack
+                pbar = tqdm(range(0, max_it), desc="Distributed Bandits Attack (Horizontal)")
+            else:
+                # Vertically Distributed Attack
+                pbar = tqdm(range(0, max_it, concurrency), desc="Distributed Bandits Attack (Vertical)")
         else:
-            pbar = tqdm(range(0, max_it), desc="Bandits Attack")
-
+            raise ValueError('Environment not supported...')
 
         total_queries = np.zeros(len(x))
 
@@ -187,16 +225,26 @@ class BanditsAttack():
                 y_curr = np.array(y_curr)
                 prior_curr = np.array(prior_curr)
 
-            if distributed:
-                x_adv_curr, prior_curr = self.batch(x_curr, x_adv_curr, y_curr, prior_curr, epsilon, fd_eta, image_lr, online_lr, exploration, max_workers, batch)
-            else:
-                x_adv_curr, prior_curr = self.step(x_curr, x_adv_curr, y_curr, prior_curr, epsilon, fd_eta, image_lr, online_lr, exploration)
+            if ENV_MODEL == 'keras':
+                x_adv_curr, prior_curr = self.step(x_curr, x_adv_curr, y_curr, prior_curr, epsilon * SCALE, fd_eta * SCALE, image_lr * SCALE, online_lr, exploration)
 
-            y_curr = np.argmax(self.classifier.predict(PREPROCESS(x_adv_curr.copy())), axis=1)
+            elif ENV_MODEL == 'deepapi':
+                if n_targets > 1:
+                    # Horizontally Distributed Attack
+                    x_adv_curr, prior_curr = self.step(x_curr, x_adv_curr, y_curr, prior_curr, epsilon * SCALE, fd_eta * SCALE, image_lr * SCALE, online_lr, exploration)
+                else:
+                    # Vertically Distributed Attack
+                    x_adv_curr, prior_curr = self.batch(x_curr, x_adv_curr, y_curr, prior_curr, epsilon * SCALE, fd_eta * SCALE, image_lr * SCALE, online_lr, exploration, concurrency)
+            else:
+                raise ValueError('Model type not supported...')
+
+            y_pred_curr = self.classifier.predict(PREPROCESS(x_adv_curr.copy()))
+            y_curr = np.argmax(y_pred_curr, axis=1)
 
             for i in range(len(not_dones)):
                 x_adv[not_dones[i]] = x_adv_curr[i]
                 priors[not_dones[i]] = prior_curr[i]
+                y_pred[not_dones[i]] = y_pred_curr[i]
                 y_pred_classes[not_dones[i]] = y_curr[i]
 
             # Logging stuff
@@ -214,8 +262,8 @@ class BanditsAttack():
                 success_queries = -1
             else:
                 success_queries = ((success_mask * total_queries).sum() / num_success)
-            
-            pbar.set_postfix({'Total Queries': total_queries.sum(), 'Success Rate': current_success_rate, 'Avg Queries': success_queries})
+
+            pbar.set_postfix({'Total Queries': total_queries.sum(), 'Mean Higest Prediction': y_pred[correct_classified].max(axis=1).mean(), 'Attack Success Rate': current_success_rate, 'Avg Queries': success_queries})
 
             # Early break
             if current_success_rate == 1.0:
