@@ -20,7 +20,6 @@ def load_imagenet(n_samples):
     x_test = []
     y_test = []
 
-
     for sample in imagenet_dataset:
         x = Image.open(str(sample['filepath']))
         y = imagenet_labels.index(sample['ground_truth']['label'])
@@ -33,10 +32,7 @@ def load_imagenet(n_samples):
             elif ENV_MODEL_TYPE == 'vgg16':
                 x = x.resize((224, 224))
 
-            x = np.array(x)
-
-        if ENV_MODEL == 'deepapi':
-            x = (np.array(x) / 255.0)
+        x = np.array(x)
 
         x_test.append(x)
         y_test.append(y)

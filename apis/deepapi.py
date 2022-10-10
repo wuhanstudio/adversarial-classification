@@ -64,9 +64,9 @@ class DeepAPIBase:
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.concurrency) as executor:
             for i, x in enumerate(X):
                 # Load the input image and construct the payload for the request
-                image = Image.fromarray(np.uint8(x * 255.0))
+                image = Image.fromarray(np.uint8(x))
                 buff = BytesIO()
-                image.save(buff, format="JPEG")
+                image.save(buff, format="JPEG", subsampling=0, quality=100)
 
                 data = {'file': base64.b64encode(buff.getvalue()).decode("utf-8")}
                 y_executors[executor.submit(send_request, url=self.url, data=data)] = i
@@ -101,7 +101,7 @@ class DeepAPIBase:
             for x in X:
                 y_pred_temp = np.zeros(len(self.labels))
                 # Load the input image and construct the payload for the request
-                image = Image.fromarray(np.uint8(x * 255.0))
+                image = Image.fromarray(np.uint8(x))
                 buff = BytesIO()
                 image.save(buff, format="JPEG")
 
