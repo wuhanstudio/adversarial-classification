@@ -25,6 +25,15 @@ if __name__ == "__main__":
 
     x_test, y_test = load_imagenet(N_SAMPLES)
 
+    # Gradient estimation is more accurate with access to the input shape
+    # for i in range(N_SAMPLES):
+    #     if ENV_MODEL_TYPE == 'inceptionv3':
+    #         x_test[i] = np.array( Image.fromarray(x_test[i]).resize((299, 299)) )
+    #     elif ENV_MODEL_TYPE == 'resnet50':
+    #         x_test[i] =  np.array( Image.fromarray(x_test[i]).resize((224, 224)) )
+    #     elif ENV_MODEL_TYPE == 'vgg16':
+    #         x_test[i] =  np.array( Image.fromarray(x_test[i]).resize((224, 224)) )
+
     if ENV_MODEL == 'keras':
         x_test = np.array(x_test)
         y_test = np.array(y_test)
@@ -63,8 +72,9 @@ if __name__ == "__main__":
     # Vertically Distributed Attack
     # x_adv = []
     # for xt, yt in zip(x_test, y_test):
-    #     bandits_attack.attack(x_test, y_test, epsilon = 0.05, max_it=1000, online_lr=100, concurrency=CONCURRENCY)
-    #     x_adv.append(xa)
+    #     xa, _ = bandits_attack.attack(np.array([xt]), np.array([yt]), epsilon = 0.05, max_it=1000, online_lr=100, concurrency=CONCURRENCY)
+    #     for x in xa:
+    #         x_adv.append(x)
 
     for i, xa in enumerate(x_adv):
         im = Image.fromarray(np.array(np.uint8(x_test[i])))

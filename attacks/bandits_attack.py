@@ -1,7 +1,8 @@
 import os
-
 import numpy as np
 from tqdm import tqdm
+
+import concurrent.futures
 
 ENV_MODEL = os.environ.get('ENV_MODEL')
 ENV_MODEL_TYPE = os.environ.get('ENV_MODEL_TYPE')
@@ -160,10 +161,38 @@ class BanditsAttack():
             img = x[i] + np.clip(img - x[i], -epsilon, epsilon)
             img = np.clip(img, 0, 1 * SCALE)
 
-            x_adv[i] = np.uint8(img)
+            x_adv[i] = img
 
         return x_adv, priors
 
+    def batch(self, x, x_adv, y, priors, epsilon, fd_eta, image_lr, online_lr, exploration, concurrency):
+
+        assert len(x) == len(x_adv) == len(y) == len(priors) == 1
+
+        noises_new = []
+        priors_new = []
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_url = {executor.submit(self.step, x, x_adv, y, priors, epsilon, fd_eta, image_lr, online_lr, exploration): j for j in range(0, concurrency)}
+            for future in concurrent.futures.as_completed(future_to_url):
+                j = future_to_url[future]
+                try:
+                    xn, pn = future.result()
+                    noises_new.append(xn[0] - x_adv[0])
+                    priors_new.append(pn[0] - priors[0])
+                except Exception as exc:
+                    print('Task %r generated an exception: %s' % (j, exc))
+                else:
+                    pass
+
+        for i in range(0, concurrency):
+            x_adv[0] = x_adv[0] + noises_new[i] / concurrency
+            priors[0] = priors[0] + priors_new[i] / concurrency
+
+        x_adv[0] = x_adv[0] + np.clip(x_adv[0] - x[0], -epsilon, epsilon)
+        x_adv[0] = np.clip(x_adv[0], 0, 1 * SCALE)
+
+        return x_adv, priors
 
     def attack(self, x, y, epsilon=0.05, fd_eta=0.1, image_lr=0.01, online_lr=100, exploration=1.0, max_it=10000, concurrency=1):
         """
@@ -195,6 +224,10 @@ class BanditsAttack():
         correct_classified = [i for i, v in enumerate(correct_classified_mask) if v]
 
         print('Clean accuracy: {:.2%}'.format(np.mean(correct_classified_mask)))
+
+        if np.mean(correct_classified_mask) == 0:
+            print('No clean examples classified correctly. Aborting...')
+            return x_adv, priors
 
         if ENV_MODEL == 'keras':
             pbar = tqdm(range(0, max_it), desc="Non-Distributed Bandits Attack")
@@ -248,7 +281,7 @@ class BanditsAttack():
                 y_pred_classes[not_dones[i]] = y_curr[i]
 
             # Logging stuff
-            total_queries += 3 * not_dones_mask
+            total_queries += 3 * not_dones_mask * concurrency
 
             not_dones_mask = not_dones_mask * (y_pred_classes == y)
 
