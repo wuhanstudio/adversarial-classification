@@ -133,6 +133,17 @@ class DeepAPIBase:
         return self.labels[i]
 
 
+class DeepAPI_VGG16_Cifar10(DeepAPIBase):
+    def __init__(self, url, concurrency=8):
+        super().__init__(concurrency)
+
+        cifar10_labels = np.array(['frog', 'deer', 'cat', 'bird', 'dog', 'truck', 'ship', 'airplane', 'horse', 'automobile'])
+
+        self.labels = cifar10_labels
+        url_parse = urlparse(url)
+        self.url = urljoin(url_parse.scheme + '://' + url_parse.netloc, 'vgg16_cifar10')
+
+
 class DeepAPI_ImageNet(DeepAPIBase):
     def __init__(self, concurrency=8):
         super().__init__(concurrency)
