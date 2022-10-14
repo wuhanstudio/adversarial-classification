@@ -308,7 +308,7 @@ class SquareAttack():
             else:
                 raise ValueError('Model type not supported...')
 
-            acc, acc_curr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, i_iter, corr_classified.sum())
+            acc, acc_curr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, i_iter, np.sum(corr_classified))
 
             pbar.set_postfix({'Total Queries': n_queries.sum(), 'Average Margin': avg_margin_min, 'Attack Success Rate': 1-acc, 'Avg Queries': mean_nq_ae})
 
