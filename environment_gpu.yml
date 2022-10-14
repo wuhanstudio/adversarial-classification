@@ -11,9 +11,9 @@ dependencies:
   - keras==2.4.3
   - pip:
     - h5py==2.10.0
-    - numpy==1.21.1
     - opencv-python==4.5.3.56
     - scipy==1.4.1
+    - numpy
     - tensorboard
     - tqdm
     - requests
