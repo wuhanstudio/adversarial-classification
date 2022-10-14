@@ -64,7 +64,7 @@ if __name__ == '__main__':
     # Note: we count the queries only across correctly classified images
     square_attack = SquareAttack(model)
 
-    log_dir = 'logs/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_dir = 'logs/' + ENV_MODEL + '/' + ENV_MODEL_TYPE + datetime.now().strftime("%Y%m%d-%H%M%S")
 
     # Horizontally Distributed Attack
     x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, epsilon = 0.05, max_it=1000, log_dir=log_dir)
@@ -72,8 +72,12 @@ if __name__ == '__main__':
     # Vertically Distributed Attack
     # x_adv = []
     # n_queries = []
-    # for xt, yt in zip(x_test, y_target_onehot):
-    #     xa, nq = square_attack.attack(np.array([xt]), np.array([yt]), False, epsilon = 0.05, max_it=1000, log_dir=log_dir, concurrency=CONCURRENCY)
+
+    # from utils.logger import TensorBoardLogger
+    # tb = TensorBoardLogger(log_dir)
+
+    # for i, xt, yt in enumerate(zip(x_test, y_target_onehot)):
+    #     xa, nq = square_attack.attack(np.array([xt]), np.array([yt]), False, epsilon = 0.05, max_it=1000, log_dir=log_dir + '/i/', concurrency=CONCURRENCY)
     #     x_adv.append(xa)
     #     n_queries.append(nq)
 

@@ -219,7 +219,7 @@ class SquareAttack():
         for i in range(len(idx_improved)):
             x_adv[idx_to_fool[i]] = idx_improved[i] * x_new[i] + ~idx_improved[i] * x_adv_curr[i]
 
-        n_queries[idx_to_fool] +=  1
+        n_queries[idx_to_fool] +=  (concurrency + 1)
 
         return x_adv, margin_min, loss_min, n_queries
 
@@ -256,6 +256,15 @@ class SquareAttack():
         if np.mean(corr_classified) == 0:
             print('No clean examples classified correctly. Aborting...')
             n_queries = np.ones(len(x))  # ones because we have already used 1 query
+
+            mean_nq, mean_nq_ae = np.mean(n_queries), np.mean(n_queries)
+
+            self.tb.log_scalar('Accuracy', 0, 0)
+            self.tb.log_scalar('Current Accuracy', 0, 0)
+            self.tb.log_scalar('Total Mean Number of Queries', mean_nq, 0)
+            self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, 0)
+            self.tb.log_scalar('Average Margin', 0, 0)
+
             return x, n_queries
 
         if ENV_MODEL == 'keras':
@@ -299,12 +308,12 @@ class SquareAttack():
             else:
                 raise ValueError('Model type not supported...')
 
-            acc, acc_corr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, i_iter, len(x))
+            acc, acc_curr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, i_iter, corr_classified.sum())
 
             pbar.set_postfix({'Total Queries': n_queries.sum(), 'Average Margin': avg_margin_min, 'Attack Success Rate': 1-acc, 'Avg Queries': mean_nq_ae})
 
-            # print('{}: acc={:.2%} acc_corr={:.2%} avg#q_ae={:.2f} med#q={:.1f}, avg_margin={:.2f} (n_ex={}, eps={:.3f})'.
-                # format(i_iter+1, acc, acc_corr, mean_nq_ae, median_nq_ae, avg_margin_min, len(x), eps))
+            # print('{}: acc={:.2%} acc_curr={:.2%} avg#q_ae={:.2f} med#q={:.1f}, avg_margin={:.2f} (n_ex={}, eps={:.3f})'.
+                # format(i_iter+1, acc, acc_curr, mean_nq_ae, median_nq_ae, avg_margin_min, len(x), eps))
 
             if acc == 0:
                 print('\nSuceessfully found adversarial examples for all examples')
@@ -316,19 +325,19 @@ class SquareAttack():
     def evaluate(self, margin_min, n_queries, i_iter, n_ex_total):
         if len(margin_min) > 0 and len(n_queries) > 0:
             acc = (margin_min > 0.0).sum() / n_ex_total
-            acc_corr = (margin_min > 0.0).mean()
+            acc_curr = (margin_min > 0.0).mean()
             mean_nq, mean_nq_ae, median_nq_ae = np.mean(n_queries), np.mean(n_queries[margin_min <= 0]), np.median(n_queries[margin_min <= 0])
             avg_margin_min = np.mean(margin_min)
 
             if self.tb is not None:
-                self.tb.log_scalar('acc', acc, i_iter+1)
-                self.tb.log_scalar('acc_corr', acc_corr, i_iter+1)
-                self.tb.log_scalar('mean_nq', mean_nq, i_iter+1)
-                self.tb.log_scalar('avg_nq_ae', mean_nq_ae, i_iter+1)
-                self.tb.log_scalar('median_nq_ae', median_nq_ae, i_iter+1)
-                self.tb.log_scalar('avg_margin', avg_margin_min, i_iter+1)
+                self.tb.log_scalar('Accuracy', acc, i_iter+1)
+                self.tb.log_scalar('Current Accuracy', acc_curr, i_iter+1)
+                self.tb.log_scalar('Total Number of Queries', n_queries.sum(), i_iter+1)
+                self.tb.log_scalar('Total Mean Number of Queries', mean_nq, i_iter+1)
+                self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, i_iter+1)
+                self.tb.log_scalar('Average Margin', avg_margin_min, i_iter+1)
 
-            return acc, acc_corr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min
+            return acc, acc_curr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min
 
         else:
             return -1, -1, -1, -1, -1, -1
