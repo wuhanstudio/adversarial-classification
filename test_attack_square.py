@@ -68,9 +68,9 @@ if __name__ == '__main__':
 
     # Horizontally Distributed Attack
     if ENV_MODEL == 'keras':
-        log_dir = 'logs/square' + ENV_MODEL + '/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_dir = 'logs/square/' + ENV_MODEL + '/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
     else:
-        log_dir = 'logs/square' + ENV_MODEL + '/horizontal/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_dir = 'logs/square/' + ENV_MODEL + '/horizontal/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
 
     x_adv, n_queries = square_attack.attack(x_test, y_target_onehot, False, epsilon = 0.05, max_it=1000, log_dir=log_dir)
 
