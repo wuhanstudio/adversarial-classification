@@ -3,6 +3,9 @@ import os
 import numpy as np
 from PIL import Image
 
+from datetime import datetime
+from utils.logger import TensorBoardLogger
+
 # ENV_MODEL = 'keras'
 ENV_MODEL = 'deepapi'
 
@@ -67,6 +70,11 @@ if __name__ == "__main__":
     bandits_attack = BanditsAttack(model)
 
     # Horizontally Distributed Attack
+    if ENV_MODEL == 'keras':
+        log_dir = 'logs/bandits/' + ENV_MODEL + '/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+    else:
+        log_dir = 'logs/bandits/' + ENV_MODEL + '/horizontal/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+
     x_adv = bandits_attack.attack(x_test, y_test, epsilon = 0.05, max_it=1000, online_lr=100)
 
     # Vertically Distributed Attack
