@@ -1,4 +1,5 @@
 import os
+import gc
 import numpy as np
 from tqdm import tqdm
 import concurrent.futures
@@ -23,7 +24,7 @@ if ENV_MODEL == 'keras':
     elif ENV_MODEL_TYPE == 'vgg16':
         from tensorflow.keras.applications.vgg16 import preprocess_input
 
-    PREPROCESS = preprocess_input
+    PREPROCESS = lambda x: preprocess_input(x.copy())
 
 class SquareAttack():
 
@@ -97,7 +98,7 @@ class SquareAttack():
         if ENV_MODEL == 'keras':
             x_adv = np.array(x_adv)
 
-        logits = self.classifier.predict(PREPROCESS(x_adv.copy()))
+        logits = self.classifier.predict(PREPROCESS(x_adv))
 
         n_queries = np.ones(len(x))  # ones because we have already used 1 query
 
@@ -154,7 +155,7 @@ class SquareAttack():
         if ENV_MODEL == 'keras':
             x_new = np.array(x_new)
 
-        logits = self.classifier.predict(PREPROCESS(x_new.copy()))
+        logits = self.classifier.predict(PREPROCESS(x_new))
 
         loss = self.model_loss(y_curr, logits, targeted, loss_type=loss_type)
         margin = self.model_loss(y_curr, logits, targeted, loss_type='margin_loss')
@@ -205,7 +206,7 @@ class SquareAttack():
 
         x_new = [  np.clip(xc + d, self.min_val, self.max_val) for xc, d in zip(x_curr, deltas) ]
 
-        logits = self.classifier.predict(PREPROCESS(x_new.copy()))
+        logits = self.classifier.predict(PREPROCESS(x_new))
 
         loss = self.model_loss(y_curr, logits, targeted, loss_type=loss_type)
         margin = self.model_loss(y_curr, logits, targeted, loss_type='margin_loss')
@@ -246,7 +247,7 @@ class SquareAttack():
             from utils.logger import TensorBoardLogger
             self.tb = TensorBoardLogger(log_dir)
 
-        logits_clean = self.classifier.predict(PREPROCESS(x.copy()))
+        logits_clean = self.classifier.predict(PREPROCESS(x))
 
         corr_classified = [(logits_clean[i].argmax() == y_label[i]) for i in range(len(x))]
 
@@ -318,6 +319,8 @@ class SquareAttack():
             if acc == 0:
                 print('\nSuceessfully found adversarial examples for all examples')
                 break
+
+            gc.collect()
 
         return x_adv, n_queries
 
