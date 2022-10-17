@@ -292,6 +292,12 @@ class SquareAttack():
 
         x_adv, margin_min, loss_min, n_queries = self.init(x, y, epsilon * SCALE, targeted, loss_type)
 
+        acc, acc_curr, mean_nq, mean_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, 0, np.sum(corr_classified))
+
+        if acc == 0:
+            print('\nSuceessfully found adversarial examples for all examples after initialization')
+            return x_adv, n_queries
+
         # Main loop
 
         for i_iter in pbar:
@@ -309,12 +315,9 @@ class SquareAttack():
             else:
                 raise ValueError('Model type not supported...')
 
-            acc, acc_curr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, i_iter, np.sum(corr_classified))
+            acc, acc_curr, mean_nq, mean_nq_ae, avg_margin_min = self.evaluate(margin_min, n_queries, i_iter, np.sum(corr_classified))
 
             pbar.set_postfix({'Total Queries': n_queries.sum(), 'Average Margin': avg_margin_min, 'Attack Success Rate': 1-acc, 'Avg Queries': mean_nq_ae})
-
-            # print('{}: acc={:.2%} acc_curr={:.2%} avg#q_ae={:.2f} med#q={:.1f}, avg_margin={:.2f} (n_ex={}, eps={:.3f})'.
-                # format(i_iter+1, acc, acc_curr, mean_nq_ae, median_nq_ae, avg_margin_min, len(x), eps))
 
             if acc == 0:
                 print('\nSuceessfully found adversarial examples for all examples')
@@ -329,18 +332,19 @@ class SquareAttack():
         if len(margin_min) > 0 and len(n_queries) > 0:
             acc = (margin_min > 0.0).sum() / n_ex_total
             acc_curr = (margin_min > 0.0).mean()
-            mean_nq, mean_nq_ae, median_nq_ae = np.mean(n_queries), np.mean(n_queries[margin_min <= 0]), np.median(n_queries[margin_min <= 0])
+            mean_nq, mean_nq_ae = np.mean(n_queries), -1 if (margin_min <= 0).sum() == 0 else np.mean(n_queries[margin_min <= 0])
             avg_margin_min = np.mean(margin_min)
 
             if self.tb is not None:
+                # Since we have an initialization process, we use (i_iter + 1) below
                 self.tb.log_scalar('Accuracy', acc, i_iter+1)
-                self.tb.log_scalar('Current Accuracy', acc_curr, i_iter+1)
+                # self.tb.log_scalar('Current Accuracy', acc_curr, i_iter+1)
                 self.tb.log_scalar('Total Number of Queries', n_queries.sum(), i_iter+1)
                 self.tb.log_scalar('Total Mean Number of Queries', mean_nq, i_iter+1)
                 self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, i_iter+1)
                 self.tb.log_scalar('Average Margin', avg_margin_min, i_iter+1)
 
-            return acc, acc_curr, mean_nq, mean_nq_ae, median_nq_ae, avg_margin_min
+            return acc, acc_curr, mean_nq, mean_nq_ae, avg_margin_min
 
         else:
             return -1, -1, -1, -1, -1, -1
