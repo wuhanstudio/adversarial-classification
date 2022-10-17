@@ -138,7 +138,7 @@ class SimBA(BaseAttack):
 
         return x_adv, y_adv
 
-    def attack(self, x, y, epsilon=0.05, max_it=1000, concurrency=1):
+    def attack(self, x, y, epsilon=0.05, max_it=1000, log_dir=None, concurrency=1):
         """
         Initiate the attack.
 
@@ -159,6 +159,12 @@ class SimBA(BaseAttack):
 
         assert n_targets > 0
 
+        # Tensorboard
+        self.tb = None
+        if log_dir is not None:
+            from utils.logger import TensorBoardLogger
+            self.tb = TensorBoardLogger(log_dir)
+
         # Initialize attack
         x_adv, y_pred, perm = self.init(x)
 
@@ -171,6 +177,21 @@ class SimBA(BaseAttack):
         not_dones_mask = correct_classified_mask.copy()
 
         print('Clean accuracy: {:.2%}'.format(np.mean(correct_classified_mask)))
+
+        if np.mean(correct_classified) == 0:
+            print('No clean examples classified correctly. Aborting...')
+            n_queries = np.ones(len(x))  # ones because we have already used 1 query
+
+            mean_nq, mean_nq_ae = np.mean(n_queries), np.mean(n_queries)
+
+            self.tb.log_scalar('Accuracy', 0, 0)
+            self.tb.log_scalar('Current Accuracy', 0, 0)
+            self.tb.log_scalar('Total Mean Number of Queries', mean_nq, 0)
+            self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, 0)
+            self.tb.log_scalar('Mean Higest Prediction', y_pred[correct_classified].max(axis=1).mean(), 0)
+
+            return x, n_queries
+
 
         if ENV_MODEL == 'keras':
             pbar = tqdm(range(0, max_it), desc="Non-Distributed SimBA Attack")
@@ -186,7 +207,7 @@ class SimBA(BaseAttack):
 
         total_queries = np.zeros(len(x))
 
-        for p in pbar:
+        for i_iter in pbar:
 
             not_dones = [i for i, v in enumerate(not_dones_mask) if v]
 
@@ -201,15 +222,15 @@ class SimBA(BaseAttack):
             y_curr = np.array(y_curr)
 
             if ENV_MODEL == 'keras':
-                x_adv_curr, y_curr = self.step(x_adv_curr, y_curr, perm_curr, p, epsilon*SCALE)
+                x_adv_curr, y_curr = self.step(x_adv_curr, y_curr, perm_curr, i_iter, epsilon*SCALE)
 
             elif ENV_MODEL == 'deepapi':
                 if n_targets > 1:
                     # Horizontally Distributed Attack
-                    x_adv_curr, y_curr = self.step(x_adv_curr, y_curr, perm_curr, p, epsilon*SCALE)
+                    x_adv_curr, y_curr = self.step(x_adv_curr, y_curr, perm_curr, i_iter, epsilon*SCALE)
                 else:
                     # Vertically Distributed Attack
-                    x_adv_curr, y_curr = self.batch(x_adv_curr, y_curr, perm_curr, p, epsilon*SCALE, concurrency)
+                    x_adv_curr, y_curr = self.batch(x_adv_curr, y_curr, perm_curr, i_iter, epsilon*SCALE, concurrency)
             else:
                 raise ValueError('Model type not supported...')
 
@@ -219,9 +240,11 @@ class SimBA(BaseAttack):
 
             # Logging stuff
             if n_targets > 1:
+                # Horizontally Distributed Attack
                 total_queries += 2 * not_dones_mask
             else:
-                total_queries += 2 * concurrency * not_dones_mask + (0 if ENV_MODEL == 'keras' else 1)
+                # Vertically Distributed Attack
+                total_queries += 2 * concurrency * not_dones_mask + 1
 
             y_pred_classes = np.argmax(y_pred, axis=1)
             not_dones_mask = not_dones_mask * (y_pred_classes == y)
@@ -236,6 +259,16 @@ class SimBA(BaseAttack):
                 success_queries = ((success_mask * total_queries).sum() / num_success)
 
             pbar.set_postfix({'Total Queries': total_queries.sum(), 'Mean Higest Prediction': y_pred[correct_classified].max(axis=1).mean(), 'Attack Success Rate': current_success_rate, 'Avg Queries': success_queries})
+
+            acc = not_dones_mask.sum() / correct_classified_mask.sum()
+            mean_nq, mean_nq_ae = np.mean(total_queries), np.mean(total_queries *success_mask)
+
+            if self.tb is not None:
+                self.tb.log_scalar('Accuracy', acc, i_iter)
+                self.tb.log_scalar('Total Number of Queries', total_queries.sum(), i_iter)
+                self.tb.log_scalar('Total Mean Number of Queries', mean_nq, i_iter)
+                self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, i_iter)
+                self.tb.log_scalar('Mean Higest Prediction', y_pred[correct_classified].max(axis=1).mean(), i_iter)
 
             # Early break
             if current_success_rate == 1.0:

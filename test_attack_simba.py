@@ -3,6 +3,9 @@ import os
 import numpy as np
 from PIL import Image
 
+from datetime import datetime
+from utils.logger import TensorBoardLogger
+
 # ENV_MODEL = 'keras'
 ENV_MODEL = 'deepapi'
 
@@ -58,10 +61,23 @@ if __name__ == "__main__":
     simba = SimBA(model)
 
     # Horizontally Distributed Attack
-    x_adv = simba.attack(x_test, y_test, epsilon=0.05, max_it=1000)
+    if ENV_MODEL == 'keras':
+        log_dir = 'logs/simba/' + ENV_MODEL + '/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+    else:
+        log_dir = 'logs/simba/' + ENV_MODEL + '/horizontal/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    x_adv = simba.attack(x_test, y_test, epsilon=0.05, max_it=1000, log_dir=log_dir)
 
     # Vertically Distributed Attack
     # x_adv = []
+
+    # if ENV_MODEL == 'keras':
+    #     log_dir = 'logs/simba/' + ENV_MODEL + '/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+    # else:
+    #     log_dir = 'logs/simba/' + ENV_MODEL + '/vertical/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    # tb = TensorBoardLogger(log_dir)
+
     # for xt, yt in zip(x_test, y_test):
     #     xa = simba.attack(np.array([xt]), yt, epsilon=0.05, max_it=10000, concurrency=CONCURRENCY)
     #     for x in xa:
