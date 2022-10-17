@@ -51,13 +51,13 @@ class DeepAPIBase:
         # Single thread
         def send_request(url, data):
             y_pred_temp = np.zeros(len(self.labels))
-            for attempt in range(3):
+            for attempt in range(5):
                 try:
                     res = requests.post(url, json=data).json()['predictions']
                     for r in res:
                         y_pred_temp[self.labels.index(r['label'])] = r['probability']
                 except Exception as e:
-                    print('\nError:', e, 'Retrying...\n')
+                    print('\nError:', e, 'Retrying...', attempt, '\n')
                     continue
 
                 break
