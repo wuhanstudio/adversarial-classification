@@ -3,14 +3,12 @@ This module implements the black-box attack `SimBA`.
 """
 
 import os
+import gc
 import numpy as np
-import concurrent.futures
 from tqdm import tqdm
-from attacks.bandits_attack import SCALE
+import concurrent.futures
 
 from attacks.base_attack import BaseAttack
-
-SCALE = 255
 
 ENV_MODEL = os.environ.get('ENV_MODEL')
 ENV_MODEL_TYPE = os.environ.get('ENV_MODEL_TYPE')
@@ -21,6 +19,7 @@ if ENV_MODEL is None:
 if ENV_MODEL_TYPE is None:
     ENV_MODEL_TYPE = 'inceptionv3'
 
+SCALE = 255
 PREPROCESS = lambda x: x
 
 if ENV_MODEL == 'keras':
@@ -31,7 +30,7 @@ if ENV_MODEL == 'keras':
     elif ENV_MODEL_TYPE == 'vgg16':
         from tensorflow.keras.applications.vgg16 import preprocess_input
 
-    PREPROCESS = preprocess_input
+    PREPROCESS = lambda x: preprocess_input(x.copy())
 
 def proj_lp(v, xi=0.1, p=2):
     """
@@ -273,5 +272,7 @@ class SimBA(BaseAttack):
             # Early break
             if current_success_rate == 1.0:
                 break
+
+            gc.collect()
 
         return x_adv

@@ -66,7 +66,7 @@ if __name__ == "__main__":
     else:
         log_dir = 'logs/simba/' + ENV_MODEL + '/horizontal/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    x_adv = simba.attack(x_test, y_test, epsilon=0.05, max_it=1000, log_dir=log_dir)
+    x_adv = simba.attack(x_test, y_test, epsilon=0.05, max_it=500, log_dir=log_dir)
 
     # Vertically Distributed Attack
     # x_adv = []
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     # tb = TensorBoardLogger(log_dir)
 
     # for xt, yt in zip(x_test, y_test):
-    #     xa = simba.attack(np.array([xt]), yt, epsilon=0.05, max_it=10000, concurrency=CONCURRENCY)
+    #     xa = simba.attack(np.array([xt]), yt, epsilon=0.05, max_it=500, concurrency=CONCURRENCY)
     #     for x in xa:
     #       x_adv.append(xa)
 
