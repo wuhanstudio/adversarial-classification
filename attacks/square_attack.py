@@ -83,6 +83,7 @@ class SquareAttack():
             loss = loss * -1 if not targeted else loss
         else:
             raise ValueError('Wrong loss.')
+
         return loss.flatten()
 
 
@@ -101,6 +102,8 @@ class SquareAttack():
         logits = self.classifier.predict(PREPROCESS(x_adv))
 
         n_queries = np.ones(len(x))  # ones because we have already used 1 query
+
+        assert(len(logits) == len(y))
 
         loss_min = self.model_loss(y, logits, targeted, loss_type=loss_type)
         margin_min = self.model_loss(y, logits, targeted, loss_type='margin_loss')
@@ -157,6 +160,8 @@ class SquareAttack():
 
         logits = self.classifier.predict(PREPROCESS(x_new))
 
+        assert(len(logits) == len(y_curr))
+
         loss = self.model_loss(y_curr, logits, targeted, loss_type=loss_type)
         margin = self.model_loss(y_curr, logits, targeted, loss_type='margin_loss')
 
@@ -207,6 +212,8 @@ class SquareAttack():
         x_new = [  np.clip(xc + d, self.min_val, self.max_val) for xc, d in zip(x_curr, deltas) ]
 
         logits = self.classifier.predict(PREPROCESS(x_new))
+
+        assert(len(logits) == len(y_curr))
 
         loss = self.model_loss(y_curr, logits, targeted, loss_type=loss_type)
         margin = self.model_loss(y_curr, logits, targeted, loss_type='margin_loss')
