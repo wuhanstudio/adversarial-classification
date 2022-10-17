@@ -64,7 +64,8 @@ if __name__ == "__main__":
     # x_adv = []
     # for xt, yt in zip(x_test, y_test):
     #     xa = simba.attack(np.array([xt]), yt, epsilon=0.05, max_it=10000, concurrency=CONCURRENCY)
-    #     x_adv.append(xa)
+    #     for x in xa:
+    #       x_adv.append(xa)
 
     # Save the adversarial images
     for i, xa in enumerate(x_adv):

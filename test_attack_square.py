@@ -82,11 +82,13 @@ if __name__ == '__main__':
     #     log_dir = 'logs/square/' + ENV_MODEL + '/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
     # else:
     #     log_dir = 'logs/square/' + ENV_MODEL + '/vertical/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+
     # tb = TensorBoardLogger(log_dir)
 
-    # for i, xt, yt in enumerate(zip(x_test, y_target_onehot)):
-    #     xa, nq = square_attack.attack(np.array([xt]), np.array([yt]), False, epsilon = 0.05, max_it=1000, log_dir=log_dir + '/i/', concurrency=CONCURRENCY)
-    #     x_adv.append(xa)
+    # for i, (xt, yt) in enumerate(zip(x_test, y_target_onehot)):
+    #     xa, nq = square_attack.attack(np.array([xt]), np.array([yt]), False, epsilon = 0.05, max_it=1000, log_dir=log_dir + '/' + str(i) + '/', concurrency=CONCURRENCY)
+    #     for x in xa:
+    #         x_adv.append(x)
     #     n_queries.append(nq)
 
     # Save the adversarial images
