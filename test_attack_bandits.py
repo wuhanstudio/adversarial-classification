@@ -75,10 +75,18 @@ if __name__ == "__main__":
     else:
         log_dir = 'logs/bandits/' + ENV_MODEL + '/horizontal/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    x_adv = bandits_attack.attack(x_test, y_test, epsilon = 0.05, max_it=1000, online_lr=100)
+    x_adv = bandits_attack.attack(x_test, y_test, epsilon = 0.05, max_it=500, online_lr=100, log_dir=log_dir)
 
     # Vertically Distributed Attack
     # x_adv = []
+
+    # if ENV_MODEL == 'keras':
+    #     log_dir = 'logs/bandits/' + ENV_MODEL + '/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+    # else:
+    #     log_dir = 'logs/bandits/' + ENV_MODEL + '/vertical/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    # tb = TensorBoardLogger(log_dir)
+
     # for xt, yt in zip(x_test, y_test):
     #     xa, _ = bandits_attack.attack(np.array([xt]), np.array([yt]), epsilon = 0.05, max_it=1000, online_lr=100, concurrency=CONCURRENCY)
     #     for x in xa:
