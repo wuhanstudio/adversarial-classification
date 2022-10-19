@@ -1,4 +1,5 @@
 import os
+import gc
 import numpy as np
 from tqdm import tqdm
 
@@ -24,7 +25,7 @@ if ENV_MODEL == 'keras':
     elif ENV_MODEL_TYPE == 'vgg16':
         from tensorflow.keras.applications.vgg16 import preprocess_input
 
-    PREPROCESS = preprocess_input
+    PREPROCESS = lambda x: preprocess_input(x.copy())
 
 ###
 # Different optimization steps
@@ -93,7 +94,7 @@ class BanditsAttack():
         """
         Initialize the attack.
         """
-        y_pred = self.classifier.predict(PREPROCESS(x.copy()))
+        y_pred = self.classifier.predict(PREPROCESS(x))
 
         x_adv = x.copy()
 
@@ -143,8 +144,8 @@ class BanditsAttack():
             exp_noises = np.array(exp_noises)
 
         # Loss points for finite difference estimator
-        l1 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_1.copy())), y) # L(prior + c*noise)
-        l2 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_2.copy())), y) # L(prior - c*noise)
+        l1 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_1)), y) # L(prior + c*noise)
+        l2 = cross_entropy(self.classifier.predict(PREPROCESS(x_query_2)), y) # L(prior - c*noise)
 
         for i, img in enumerate(x_adv):
             # Finite differences estimate of directional derivative
@@ -194,7 +195,7 @@ class BanditsAttack():
 
         return x_adv, priors
 
-    def attack(self, x, y, epsilon=0.05, fd_eta=0.1, image_lr=0.01, online_lr=100, exploration=1.0, max_it=10000, concurrency=1):
+    def attack(self, x, y, epsilon=0.05, fd_eta=0.1, image_lr=0.01, online_lr=100, exploration=1.0, max_it=10000, concurrency=1, log_dir=None):
         """
         Initiate the attack.
 
@@ -214,6 +215,12 @@ class BanditsAttack():
 
         assert n_targets > 0
 
+        # Tensorboard
+        self.tb = None
+        if log_dir is not None:
+            from utils.logger import TensorBoardLogger
+            self.tb = TensorBoardLogger(log_dir)
+
         x_adv, y_pred, priors = self.init(x)
 
         # Continue query count
@@ -227,6 +234,16 @@ class BanditsAttack():
 
         if np.mean(correct_classified_mask) == 0:
             print('No clean examples classified correctly. Aborting...')
+            n_queries = np.ones(len(x))  # ones because we have already used 1 query
+
+            mean_nq, mean_nq_ae = np.mean(n_queries), np.mean(n_queries)
+
+            self.tb.log_scalar('Accuracy', 0, 0)
+            self.tb.log_scalar('Current Accuracy', 0, 0)
+            self.tb.log_scalar('Total Mean Number of Queries', mean_nq, 0)
+            self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, 0)
+            self.tb.log_scalar('Mean Higest Prediction', y_pred[correct_classified].max(axis=1).mean(), 0)
+
             return x_adv, priors
 
         if ENV_MODEL == 'keras':
@@ -243,7 +260,7 @@ class BanditsAttack():
 
         total_queries = np.zeros(len(x))
 
-        for p in pbar:
+        for i_iter in pbar:
 
             not_dones = [i for i, v in enumerate(not_dones_mask) if v]
 
@@ -271,7 +288,7 @@ class BanditsAttack():
             else:
                 raise ValueError('Model type not supported...')
 
-            y_pred_curr = self.classifier.predict(PREPROCESS(x_adv_curr.copy()))
+            y_pred_curr = self.classifier.predict(PREPROCESS(x_adv_curr))
             y_curr = np.argmax(y_pred_curr, axis=1)
 
             for i in range(len(not_dones)):
@@ -298,8 +315,20 @@ class BanditsAttack():
 
             pbar.set_postfix({'Total Queries': total_queries.sum(), 'Mean Higest Prediction': y_pred[correct_classified].max(axis=1).mean(), 'Attack Success Rate': current_success_rate, 'Avg Queries': success_queries})
 
+            acc = not_dones_mask.sum() / correct_classified_mask.sum()
+            mean_nq, mean_nq_ae = np.mean(total_queries), np.mean(total_queries *success_mask)
+
+            if self.tb is not None:
+                self.tb.log_scalar('Accuracy', acc, i_iter)
+                self.tb.log_scalar('Total Number of Queries', total_queries.sum(), i_iter)
+                self.tb.log_scalar('Total Mean Number of Queries', mean_nq, i_iter)
+                self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, i_iter)
+                self.tb.log_scalar('Mean Higest Prediction', y_pred[correct_classified].max(axis=1).mean(), i_iter)
+
             # Early break
             if current_success_rate == 1.0:
                 break
+
+            gc.collect()
 
         return x_adv
