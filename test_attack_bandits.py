@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # tb = TensorBoardLogger(log_dir)
 
     # for xt, yt in zip(x_test, y_test):
-    #     xa, _ = bandits_attack.attack(np.array([xt]), np.array([yt]), epsilon = 0.05, max_it=333, online_lr=100, concurrency=CONCURRENCY)
+    #     xa = bandits_attack.attack(np.array([xt]), np.array([yt]), epsilon = 0.05, max_it=333, online_lr=100, concurrency=CONCURRENCY)
     #     for x in xa:
     #         x_adv.append(x)
 
