@@ -3,7 +3,6 @@ import numpy as np
 from PIL import Image
 
 from datetime import datetime
-from utils.logger import TensorBoardLogger
 
 # ENV_MODEL = 'keras'
 ENV_MODEL = 'deepapi'
@@ -82,8 +81,6 @@ if __name__ == '__main__':
     #     log_dir = 'logs/square/' + ENV_MODEL + '/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
     # else:
     #     log_dir = 'logs/square/' + ENV_MODEL + '/vertical/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
-
-    # tb = TensorBoardLogger(log_dir)
 
     # for i, (xt, yt) in enumerate(zip(x_test, y_target_onehot)):
     #     xa, nq = square_attack.attack(np.array([xt]), np.array([yt]), False, epsilon = 0.05, max_it=1000, log_dir=log_dir + '/' + str(i) + '/', concurrency=CONCURRENCY)

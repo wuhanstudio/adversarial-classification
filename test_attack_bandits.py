@@ -4,7 +4,6 @@ import numpy as np
 from PIL import Image
 
 from datetime import datetime
-from utils.logger import TensorBoardLogger
 
 # ENV_MODEL = 'keras'
 ENV_MODEL = 'deepapi'
@@ -85,10 +84,8 @@ if __name__ == "__main__":
     # else:
     #     log_dir = 'logs/bandits/' + ENV_MODEL + '/vertical/' + ENV_MODEL_TYPE + '/' + datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    # tb = TensorBoardLogger(log_dir)
-
-    # for xt, yt in zip(x_test, y_test):
-    #     xa, _ = bandits_attack.attack(np.array([xt]), np.array([yt]), epsilon = 0.05, max_it=333, online_lr=100, concurrency=CONCURRENCY)
+    # for i, (xt, yt) in enumerate(zip(x_test, y_test)):
+    #     xa = bandits_attack.attack(np.array([xt]), np.array([yt]), epsilon = 0.05, max_it=333, online_lr=100, concurrency=CONCURRENCY, log_dir=log_dir + '/' + str(i) + '/')
     #     for x in xa:
     #         x_adv.append(x)
 
