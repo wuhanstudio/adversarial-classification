@@ -186,7 +186,7 @@ class BanditsAttack():
                 else:
                     pass
 
-        for i in range(0, concurrency):
+        for i in range(0, len(noises_new)):
             x_adv[0] = x_adv[0] + noises_new[i] / concurrency
             priors[0] = priors[0] + priors_new[i] / concurrency
 
@@ -244,7 +244,7 @@ class BanditsAttack():
             self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, 0)
             self.tb.log_scalar('Mean Higest Prediction', y_pred[correct_classified].max(axis=1).mean(), 0)
 
-            return x_adv, priors
+            return x_adv
 
         if ENV_MODEL == 'keras':
             pbar = tqdm(range(0, max_it), desc="Non-Distributed Bandits Attack")
