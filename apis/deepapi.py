@@ -53,7 +53,7 @@ class DeepAPIBase:
             y_pred_temp = np.zeros(len(self.labels))
             for attempt in range(5):
                 try:
-                    res = requests.post(url, json=data).json()['predictions']
+                    res = requests.post(url, json=data, timeout=10).json()['predictions']
                     for r in res:
                         y_pred_temp[self.labels.index(r['label'])] = r['probability']
                 except Exception as e:
@@ -113,10 +113,17 @@ class DeepAPIBase:
                 image.save(buff, format="JPEG")
 
                 data = {'file': base64.b64encode(buff.getvalue()).decode("utf-8")}
-                res = requests.post(self.url, json=data).json()['predictions']
 
-                for r in res:
-                    y_pred_temp[self.labels.index(r['label'])] = r['probability']
+                for attempt in range(5):
+                    try:
+                        res = requests.post(self.url, json=data, timeout=10).json()['predictions']
+                        for r in res:
+                            y_pred_temp[self.labels.index(r['label'])] = r['probability']
+                    except Exception as e:
+                        print('\nError:', e, 'Retrying...', attempt, '\n')
+                        continue
+
+                    break
 
                 y_preds.append(y_pred_temp)
 
