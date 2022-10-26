@@ -177,7 +177,7 @@ class SimBA(BaseAttack):
 
         print('Clean accuracy: {:.2%}'.format(np.mean(correct_classified_mask)))
 
-        if np.mean(correct_classified) == 0:
+        if np.mean(correct_classified_mask) == 0:
             print('No clean examples classified correctly. Aborting...')
             n_queries = np.ones(len(x))  # ones because we have already used 1 query
 
