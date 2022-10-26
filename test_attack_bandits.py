@@ -86,6 +86,7 @@ if __name__ == "__main__":
 
     # for i, (xt, yt) in enumerate(zip(x_test, y_test)):
     #     xa = bandits_attack.attack(np.array([xt]), np.array([yt]), epsilon = 0.05, max_it=333, online_lr=100, concurrency=CONCURRENCY, log_dir=log_dir + '/' + str(i) + '/')
+
     #     for x in xa:
     #         x_adv.append(x)
 
