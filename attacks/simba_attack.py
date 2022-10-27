@@ -189,7 +189,7 @@ class SimBA(BaseAttack):
             self.tb.log_scalar('Success Mean Number of Queries', mean_nq_ae, 0)
             self.tb.log_scalar('Mean Higest Prediction', y_pred[correct_classified].max(axis=1).mean(), 0)
 
-            return x, n_queries
+            return x
 
 
         if ENV_MODEL == 'keras':
