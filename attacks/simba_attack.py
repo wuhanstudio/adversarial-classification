@@ -130,7 +130,7 @@ class SimBA(BaseAttack):
 
         for i in range(0, len(x_adv)):
             if(np.sum(noises[i]) != 0):
-                noises = proj_lp(noises[i], xi = 1)
+                noises = proj_lp(noises[i], xi = 10)
             x_adv[i] = np.clip(x_adv[i] + noises[i], 0, 1 * SCALE)
 
         y_adv = self.classifier.predict(PREPROCESS(x_adv.copy())) 
