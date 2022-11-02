@@ -4,7 +4,11 @@
 
 [[ Talk ]](https://distributed.wuhanstudio.uk) [[ Video ]]() [[ Paper ]](https://arxiv.org/abs/2210.16371) [[ Code ]](https://github.com/wuhanstudio/adversarial-classification)
 
-Whether black-box attacks are real threats or just research stories?
+Whether black-box attacks have become a real threat against image classification cloud services? Our research demonstrates that it is possible to exploit the load balancer to accelerate black-box attacks.
+
+We open-source our image classification cloud service, [DeepAPI](https://github.com/wuhanstudio/deepapi), to facilitate future research on distributed blackbox attacks that bring adversarial attacks closer to being a practical threat against machine learning models deployed on cloud servers.
+
+![](docs/distribution.jpg)
 
 
 ### Quick Start
@@ -23,8 +27,6 @@ $ # GPU
 $ conda env create -f environment_gpu.yml
 $ conda activate adversarial-gpu-classification
 ```
-
-![](docs/distribution.jpg)
 
 ## Citation
 
