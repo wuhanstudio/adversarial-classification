@@ -28,6 +28,49 @@ $ conda env create -f environment_gpu.yml
 $ conda activate adversarial-gpu-classification
 ```
 
+#### Test Cloud APIs
+
+```
+# Set up your Google Cloud Vision
+$ python test_api_cloud_vision.py
+
+# Change your API key in the code
+$ python test_api_imagga.py
+
+$ python test_api_deepapi.py
+```
+
+#### Horizontal Distribution
+
+```
+# You can change the target model and DeepAPI URL in the code.
+
+# Bandits Attack
+$ python test_attack_bandits.py
+
+# SimBA Attack
+$ python test_attack_simba.py
+
+# Square Attack
+$ python test_attack_square.py
+```
+
+#### Vertical Distribution
+
+```
+# You can change the target model and DeepAPI URL in the code.
+
+# Bandits Attack
+$ python test_attack_bandits_one.py
+
+# SimBA Attack
+$ python test_attack_simba_one.py
+
+# Square Attack
+$ python test_attack_square_one.py
+```
+
+
 ## Citation
 
 ```
