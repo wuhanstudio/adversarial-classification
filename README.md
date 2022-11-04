@@ -2,7 +2,7 @@
 
 > Distributed Black-Box attacks against Image Classification.
 
-[[ Talk ]](https://distributed.wuhanstudio.uk) [[ Video ]]() [[ Paper ]](https://arxiv.org/abs/2210.16371) [[ Code ]](https://github.com/wuhanstudio/adversarial-classification)
+[[ Talk ]](https://distributed.wuhanstudio.uk) [[ Video ]](https://youtu.be/3OTjkBSGhRw) [[ Paper ]](https://arxiv.org/abs/2210.16371) [[ Code ]](https://github.com/wuhanstudio/adversarial-classification)
 
 Whether black-box attacks have become a real threat against image classification cloud services? Our research demonstrates that it is possible to exploit the load balancer to accelerate black-box attacks.
 
