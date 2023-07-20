@@ -69,3 +69,36 @@ $ python test_attack_simba_one.py
 # Square Attack
 $ python test_attack_square_one.py
 ```
+
+# Black-box Adversarial Toolbox (BAT)
+
+[![Build Status](https://app.travis-ci.com/wuhanstudio/blackbox-adversarial-toolbox.svg?branch=master)](https://app.travis-ci.com/wuhanstudio/blackbox-adversarial-toolbox)
+[![PyPI version](https://badge.fury.io/py/blackbox-adversarial-toolbox.svg)](https://badge.fury.io/py/blackbox-adversarial-toolbox)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/blackbox-adversarial-toolbox)](https://pypi.org/project/blackbox-adversarial-toolbox/)
+[![](https://img.shields.io/badge/Documentation-brightgreen)](https://bat.wuhanstudio.uk/)
+
+Alternatively, you can try distributed black-box attacks using our toolbox.
+
+## Installation
+
+```python
+pip install blackbox-adversarial-toolbox
+```
+
+
+## Usage (CLI)
+
+```
+Usage: bat [OPTIONS] COMMAND [ARGS]...
+
+  The CLI tool for Black-box Adversarial Toolbox (BAT).
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  api      Manage Cloud APIs
+  attack   Manage Attacks
+  example  Manage Examples
+```
