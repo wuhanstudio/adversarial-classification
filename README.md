@@ -86,6 +86,7 @@ Alternatively, you can try distributed black-box attacks using our toolbox.
 pip install blackbox-adversarial-toolbox
 ```
 
+<img src="https://bat.wuhanstudio.uk/images/bat.png" width=300px style="float: left;" >
 
 ## Usage (CLI)
 
