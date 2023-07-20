@@ -69,17 +69,3 @@ $ python test_attack_simba_one.py
 # Square Attack
 $ python test_attack_square_one.py
 ```
-
-
-## Citation
-
-```
-@misc{han2022class,
-  doi = {10.48550/ARXIV.2210.16371},
-  url = {https://arxiv.org/abs/2210.16371},
-  author = {Wu, Han and Rowlands, Sareh and Wahlstrom, Johan},
-  title = {Distributed Black-box Attack against Image Classification Cloud Services},
-  publisher = {arXiv},
-  year = {2022}
-}
-```
